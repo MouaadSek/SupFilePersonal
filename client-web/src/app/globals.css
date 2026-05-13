@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --brand:       #2da2fd;
+  --brand-light: #3cb5ff;
+  --brand-pale:  #a5d3fe;
+  --brand-bg:    #edf3f9;
+  --text-dark:   #364751;
+  --text-mid:    #858c92;
+  --border:      #cdd0d3;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: var(--brand-bg);
+  color: var(--text-dark);
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  .btn-primary {
+    @apply w-full py-3 rounded-xl font-semibold text-white transition-all duration-200
+           bg-brand hover:bg-brand-light active:scale-95 focus:outline-none
+           focus:ring-2 focus:ring-brand focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-3 rounded-xl border border-slate-light bg-white text-slate-dark
+           placeholder-slate-mid text-sm transition focus:outline-none
+           focus:ring-2 focus:ring-brand focus:border-brand;
+  }
+
+  .auth-card {
+    @apply bg-white rounded-2xl shadow-sm border border-slate-light p-8 w-full max-w-md;
+  }
+}
