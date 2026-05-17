@@ -38,3 +38,7 @@ Thumbs.db
 *.p12
 *.key
 *.mobileprovision
+
+# Server upload volume — never commit uploaded files
+server/storage/*
+!server/storage/.gitkeep
