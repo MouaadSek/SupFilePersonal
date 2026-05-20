@@ -1,27 +1,22 @@
-version: '3.9'
-
 services:
 
-  # ── PostgreSQL ──────────────────────────────────────────────
   db:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB:       ${DB_NAME:-supfile_dev}
-      POSTGRES_USER:     ${DB_USER:-supfile}
+      POSTGRES_DB: ${DB_NAME:-supfile_dev}
+      POSTGRES_USER: ${DB_USER:-supfile}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
     volumes:
       - pg_data:/var/lib/postgresql/data
       - ./server/src/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-supfile}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-supfile} -d ${DB_NAME:-supfile_dev}"]
       interval: 10s
       timeout: 5s
       retries: 5
-    ports:
-      - "5432:5432"   # exposed for local psql / migration scripts
 
-  # ── Node.js API ─────────────────────────────────────────────
+
   server:
     build:
       context: ./server
@@ -31,26 +26,25 @@ services:
       db:
         condition: service_healthy
     environment:
-      NODE_ENV:            production
-      PORT:                3000
-      DB_HOST:             db
-      DB_PORT:             5432
-      DB_NAME:             ${DB_NAME:-supfile_dev}
-      DB_USER:             ${DB_USER:-supfile}
-      DB_PASSWORD:         ${DB_PASSWORD}
-      JWT_SECRET:          ${JWT_SECRET:?JWT_SECRET is required}
-      JWT_EXPIRES_IN:      ${JWT_EXPIRES_IN:-7d}
-      OAUTH_CLIENT_ID:     ${OAUTH_CLIENT_ID:-}
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-supfile_dev}
+      DB_USER: ${DB_USER:-supfile}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      OAUTH_CLIENT_ID: ${OAUTH_CLIENT_ID:-}
       OAUTH_CLIENT_SECRET: ${OAUTH_CLIENT_SECRET:-}
-      OAUTH_CALLBACK_URL:  ${OAUTH_CALLBACK_URL:-http://localhost:3000/auth/oauth/callback}
-      STORAGE_PATH:        /app/storage
-      CLIENT_ORIGIN:       ${CLIENT_ORIGIN:-http://localhost:4000}
+      OAUTH_CALLBACK_URL: ${OAUTH_CALLBACK_URL:-http://localhost:3000/auth/oauth/callback}
+      STORAGE_PATH: /app/storage
+      CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:4000}
     volumes:
       - file_storage:/app/storage
     ports:
       - "3000:3000"
 
-  # ── Next.js Web Client ──────────────────────────────────────
   web:
     build:
       context: ./client-web
