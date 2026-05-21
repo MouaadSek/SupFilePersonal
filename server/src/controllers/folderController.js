@@ -142,4 +142,19 @@ async function removeMember(req, res, next) {
   }
 }
 
-module.exports = { listRoot, listFolder, create, update, trash, zip, addMember, removeMember };
+// POST /folders/:id/restore
+async function restore(req, res, next) {
+  try {
+    const result = await query(
+      'UPDATE folders SET trashed = FALSE WHERE id = $1 AND owner_id = $2 RETURNING *',
+      [req.params.id, req.user.id]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'Folder not found in trash' });
+    await query('UPDATE files SET trashed = FALSE WHERE folder_id = $1', [req.params.id]);
+    return res.json(result.rows[0]);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { listRoot, listFolder, create, update, trash, zip, addMember, removeMember, restore };

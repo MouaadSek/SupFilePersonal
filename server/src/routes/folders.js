@@ -8,6 +8,7 @@ router.post('/', auth, c.create);
 router.patch('/:id', auth, c.update);
 router.delete('/:id', auth, c.trash);
 router.get('/:id/zip', auth, c.zip);
+router.post('/:id/restore', auth, c.restore);
 router.post('/:id/members', auth, c.addMember);
 router.delete('/:id/members/:userId', auth, c.removeMember);
 

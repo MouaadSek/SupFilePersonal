@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { query } = require('../db');
 const quotaService = require('../services/quotaService');
+const storageService = require('../services/storageService');
 
 const STORAGE_PATH = process.env.STORAGE_PATH || './storage';
 
@@ -126,4 +127,62 @@ async function restore(req, res, next) {
   }
 }
 
-module.exports = { upload, download, preview, update, trash, restore };
+// GET /files/trash
+async function listTrash(req, res, next) {
+  try {
+    const files = await query(
+      `SELECT id, name, mime_type, size, updated_at
+       FROM files WHERE owner_id = $1 AND trashed = TRUE ORDER BY updated_at DESC`,
+      [req.user.id]
+    );
+    const folders = await query(
+      `SELECT id, name, updated_at
+       FROM folders WHERE owner_id = $1 AND trashed = TRUE ORDER BY updated_at DESC`,
+      [req.user.id]
+    );
+    return res.json({ files: files.rows, folders: folders.rows });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// DELETE /files/:id/permanent
+async function permanentDelete(req, res, next) {
+  try {
+    const result = await query(
+      'SELECT * FROM files WHERE id = $1 AND owner_id = $2 AND trashed = TRUE',
+      [req.params.id, req.user.id]
+    );
+    const file = result.rows[0];
+    if (!file) return res.status(404).json({ error: 'File not found in trash' });
+
+    storageService.deleteFile(file.storage_path);
+    await quotaService.decrement(req.user.id, file.size);
+    await query('DELETE FROM files WHERE id = $1', [file.id]);
+
+    return res.json({ message: 'File permanently deleted' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// DELETE /files/trash/empty
+async function emptyTrash(req, res, next) {
+  try {
+    const result = await query(
+      'SELECT * FROM files WHERE owner_id = $1 AND trashed = TRUE',
+      [req.user.id]
+    );
+    for (const file of result.rows) {
+      storageService.deleteFile(file.storage_path);
+      await quotaService.decrement(req.user.id, file.size);
+    }
+    await query('DELETE FROM files WHERE owner_id = $1 AND trashed = TRUE', [req.user.id]);
+    await query('DELETE FROM folders WHERE owner_id = $1 AND trashed = TRUE', [req.user.id]);
+    return res.json({ message: 'Trash emptied' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { upload, download, preview, update, trash, restore, listTrash, permanentDelete, emptyTrash };
