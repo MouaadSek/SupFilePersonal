@@ -82,7 +82,7 @@ function getToken() {
 }
 
 function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`animate-pulse rounded-xl bg-slate-light/60 ${className}`} />;
+  return <div className={`animate-pulse rounded-xl bg-slate-light/60 dark:bg-slate-700/60 ${className}`} />;
 }
 
 function Toast({ message, type = 'success' }: { message: string; type?: 'success' | 'error' }) {
@@ -139,8 +139,8 @@ function NewFolderModal({ onClose, onCreated }: { onClose: () => void; onCreated
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl border border-slate-light p-6 w-full max-w-sm shadow-xl">
-        <h3 className="font-semibold text-slate-dark mb-4">New Folder</h3>
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-light dark:border-slate-700 p-6 w-full max-w-sm shadow-xl">
+        <h3 className="font-semibold text-slate-dark dark:text-slate-100 mb-4">New Folder</h3>
         <form onSubmit={submit} className="space-y-4">
           <input
             autoFocus
@@ -212,11 +212,11 @@ function ShareLinkModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl border border-slate-light p-6 w-full max-w-md shadow-xl">
-        <h3 className="font-semibold text-slate-dark text-lg mb-1">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-light dark:border-slate-700 p-6 w-full max-w-md shadow-xl">
+        <h3 className="font-semibold text-slate-dark dark:text-slate-100 text-lg mb-1">
           Share &ldquo;{target.name}&rdquo;
         </h3>
-        <p className="text-sm text-slate-mid mb-5">Create a public link to share this {target.type}.</p>
+        <p className="text-sm text-slate-mid dark:text-slate-400 mb-5">Create a public link to share this {target.type}.</p>
 
         {error && (
           <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">
@@ -319,9 +319,9 @@ function FolderShareModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl border border-slate-light p-6 w-full max-w-sm shadow-xl">
-        <h3 className="font-semibold text-slate-dark mb-1">Share with someone</h3>
-        <p className="text-sm text-slate-mid mb-5">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-light dark:border-slate-700 p-6 w-full max-w-sm shadow-xl">
+        <h3 className="font-semibold text-slate-dark dark:text-slate-100 mb-1">Share with someone</h3>
+        <p className="text-sm text-slate-mid dark:text-slate-400 mb-5">
           Give another user access to &ldquo;{folder.name}&rdquo;.
         </p>
 
@@ -488,12 +488,12 @@ function PreviewModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-light/80">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-light/80 dark:border-slate-700">
           <div className="min-w-0 flex-1 pr-4">
-            <h3 className="font-semibold text-slate-dark truncate">{file.name}</h3>
-            <p className="text-xs text-slate-mid mt-0.5">
+            <h3 className="font-semibold text-slate-dark dark:text-slate-100 truncate">{file.name}</h3>
+            <p className="text-xs text-slate-mid dark:text-slate-400 mt-0.5">
               {formatBytes(file.size)} &middot; {mime} &middot;{' '}
               {new Date(file.updated_at).toLocaleDateString('en-US', {
                 year: 'numeric', month: 'short', day: 'numeric',
@@ -773,7 +773,7 @@ export default function FilesPage() {
       {/* ── Header ── */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-dark">My Files</h1>
+          <h1 className="text-2xl font-bold text-slate-dark dark:text-slate-100">My Files</h1>
           <div className="mt-1.5">
             <Breadcrumb crumbs={crumbs} onNavigate={navigateCrumb} />
           </div>
@@ -861,11 +861,11 @@ export default function FilesPage() {
                       onDragOver={(e) => handleFolderDragOver(e, f)}
                       onDragLeave={(e) => handleFolderDragLeave(e)}
                       onDrop={(e) => handleFolderDrop(e, f)}
-                      className={`group relative bg-white border rounded-2xl p-4 flex flex-col
+                      className={`group relative bg-white dark:bg-slate-800 border rounded-2xl p-4 flex flex-col
                                  items-center gap-2 cursor-pointer select-none transition-all
                                  ${isOver
                                    ? 'border-brand bg-brand/5 shadow-md scale-[1.02]'
-                                   : 'border-slate-light hover:border-brand hover:shadow-sm'
+                                   : 'border-slate-light dark:border-slate-700 hover:border-brand hover:shadow-sm'
                                  }`}
                     >
                       {/* Dashed drop-target ring */}
@@ -882,7 +882,7 @@ export default function FilesPage() {
                         </svg>
                       </div>
 
-                      <p className="text-xs font-medium text-slate-dark text-center truncate w-full">
+                      <p className="text-xs font-medium text-slate-dark dark:text-slate-100 text-center truncate w-full">
                         {f.name}
                       </p>
 
@@ -957,7 +957,7 @@ export default function FilesPage() {
               <h2 className="text-xs font-semibold text-slate-mid uppercase tracking-wider mb-3">
                 Files ({files.length})
               </h2>
-              <div className="bg-white rounded-2xl border border-slate-light overflow-hidden">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-light dark:border-slate-700 overflow-hidden">
                 {files.map((f, i) => {
                   const { bg, color } = mimeColor(f.mime_type);
                   const isDragging = draggingFile?.id === f.id;
@@ -967,18 +967,18 @@ export default function FilesPage() {
                       draggable
                       onDragStart={(e) => handleDragStart(e, f)}
                       onDragEnd={handleDragEnd}
-                      className={`flex items-center gap-4 px-5 py-3.5 hover:bg-brand-bg/50 transition group
+                      className={`flex items-center gap-4 px-5 py-3.5 hover:bg-brand-bg/50 dark:hover:bg-slate-700/50 transition group
                                   cursor-grab active:cursor-grabbing
-                                  ${i !== files.length - 1 ? 'border-b border-slate-light/60' : ''}
-                                  ${isDragging ? 'opacity-40 bg-brand-bg/30' : ''}`}
+                                  ${i !== files.length - 1 ? 'border-b border-slate-light/60 dark:border-slate-700/60' : ''}
+                                  ${isDragging ? 'opacity-40 bg-brand-bg/30 dark:bg-slate-700/30' : ''}`}
                     >
                       <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
                         style={{ background: bg, color }}>
                         <FileIcon mime={f.mime_type} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-dark truncate">{f.name}</p>
-                        <p className="text-xs text-slate-mid">{formatBytes(f.size)} · {timeAgo(f.updated_at)}</p>
+                        <p className="text-sm font-medium text-slate-dark dark:text-slate-100 truncate">{f.name}</p>
+                        <p className="text-xs text-slate-mid dark:text-slate-400">{formatBytes(f.size)} · {timeAgo(f.updated_at)}</p>
                       </div>
                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition shrink-0">
                         <button
