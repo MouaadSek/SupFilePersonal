@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, type ChangeEvent } from 'react';
+import { useState, useEffect, useRef, useCallback, type ChangeEvent } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/api';
@@ -539,7 +539,9 @@ export default function FilesPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadPct, setUploadPct] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [failedFile, setFailedFile] = useState<File | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const xhrRef = useRef<XMLHttpRequest | null>(null);
 
   // drag & drop
   const [draggingFile, setDraggingFile] = useState<FileItem | null>(null);
@@ -627,44 +629,85 @@ export default function FilesPage() {
 
   // ── Upload ───────────────────────────────────────────────────────────────
 
-  async function uploadSingleFile(file: File): Promise<boolean> {
+  const uploadSingleFile = useCallback((file: File): Promise<boolean> => {
     setUploading(true);
     setUploadPct(0);
     setUploadError(null);
+    setFailedFile(null);
     setCurrentFileName(file.name);
 
-    const form = new FormData();
-    form.append('file', file);
-    if (folderId) form.append('folder_id', folderId);
+    return new Promise<boolean>((resolve) => {
+      const form = new FormData();
+      form.append('file', file);
+      if (folderId) form.append('folder_id', folderId);
 
-    try {
-      await api.post('/files/upload', form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        onUploadProgress: (ev) => {
-          if (ev.total) setUploadPct(Math.round((ev.loaded / ev.total) * 100));
-        },
-      });
-      showToast(`"${file.name}" uploaded!`);
-      return true;
-    } catch (err: unknown) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      if (status === 413) {
-        setUploadError('Storage quota exceeded. Free up space or upgrade your plan.');
-      } else if (status === 400 && msg?.includes('file size')) {
-        setUploadError('File too large. Maximum allowed size is 5 GB.');
-      } else if (msg) {
-        setUploadError(msg);
-      } else {
-        setUploadError('Upload failed. Please try again.');
-      }
-      return false;
-    } finally {
-      setUploading(false);
-      setUploadPct(0);
-      setCurrentFileName(null);
-      if (fileInput.current) fileInput.current.value = '';
-    }
+      const xhr = new XMLHttpRequest();
+      xhrRef.current = xhr;
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) setUploadPct(Math.round((e.loaded / e.total) * 100));
+      };
+
+      const cleanup = () => {
+        setUploading(false);
+        setUploadPct(0);
+        setCurrentFileName(null);
+        xhrRef.current = null;
+        if (fileInput.current) fileInput.current.value = '';
+      };
+
+      xhr.onload = () => {
+        cleanup();
+        if (xhr.status >= 200 && xhr.status < 300) {
+          showToast(`"${file.name}" uploaded!`);
+          resolve(true);
+        } else {
+          let msg = 'Upload failed. Please try again.';
+          try {
+            const data = JSON.parse(xhr.responseText);
+            if (xhr.status === 413) {
+              msg = 'Storage quota exceeded. Free up space or upgrade your plan.';
+            } else if (data?.error?.includes('file size')) {
+              msg = 'File too large. Maximum allowed size is 5 GB.';
+            } else if (data?.error) {
+              msg = data.error;
+            }
+          } catch { /* ignore parse error */ }
+          setUploadError(msg);
+          setFailedFile(file);
+          resolve(false);
+        }
+      };
+
+      xhr.onerror = () => {
+        cleanup();
+        setUploadError('Network error. Please try again.');
+        setFailedFile(file);
+        resolve(false);
+      };
+
+      xhr.onabort = () => {
+        cleanup();
+        resolve(false);
+      };
+
+      xhr.open('POST', `${API_BASE}/files/upload`);
+      xhr.setRequestHeader('Authorization', `Bearer ${getToken()}`);
+      xhr.send(form);
+    });
+  }, [folderId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function cancelUpload() {
+    xhrRef.current?.abort();
+    setUploadError(null);
+    setFailedFile(null);
+  }
+
+  async function retryUpload() {
+    if (!failedFile) return;
+    const file = failedFile;
+    await uploadSingleFile(file);
+    load(folderId);
   }
 
   async function handleUpload(e: ChangeEvent<HTMLInputElement>) {
@@ -841,7 +884,16 @@ export default function FilesPage() {
         <div className="mb-4">
           <div className="flex items-center justify-between text-xs text-slate-mid mb-1.5">
             <span>Uploading{currentFileName ? ` "${currentFileName}"` : ''}…</span>
-            <span className="font-medium text-brand">{uploadPct}%</span>
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-brand">{uploadPct}%</span>
+              <button
+                onClick={cancelUpload}
+                className="px-2 py-0.5 rounded-md border border-red-300 text-red-500
+                           hover:bg-red-50 transition text-xs"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
           <div className="h-2 bg-slate-light/60 rounded-full overflow-hidden">
             <div
@@ -857,8 +909,18 @@ export default function FilesPage() {
         <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm
                         flex items-center justify-between">
           <span>{uploadError}</span>
-          <button onClick={() => setUploadError(null)}
-            className="ml-4 text-red-400 hover:text-red-600 transition">✕</button>
+          <div className="flex items-center gap-2 ml-4 shrink-0">
+            {failedFile && (
+              <button
+                onClick={retryUpload}
+                className="px-2 py-1 rounded-lg bg-red-500 text-white text-xs hover:bg-red-600 transition"
+              >
+                Retry
+              </button>
+            )}
+            <button onClick={() => { setUploadError(null); setFailedFile(null); }}
+              className="text-red-400 hover:text-red-600 transition">✕</button>
+          </div>
         </div>
       )}
 
