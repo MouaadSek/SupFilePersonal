@@ -20,10 +20,12 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+app.use(require('passport').initialize());
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
-app.use('/auth',      authRoutes);
+app.use('/auth/oauth', require('./routes/oauth'));
+app.use('/auth',       authRoutes);
 app.use('/files',     fileRoutes);
 app.use('/folders',   folderRoutes);
 app.use('/shares',    shareRoutes);
