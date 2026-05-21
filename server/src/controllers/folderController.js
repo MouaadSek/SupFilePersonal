@@ -22,7 +22,10 @@ async function listRoot(req, res, next) {
 async function listFolder(req, res, next) {
   try {
     const folder = await query(
-      'SELECT * FROM folders WHERE id = $1 AND owner_id = $2 AND trashed = FALSE',
+      `SELECT * FROM folders WHERE id = $1 AND trashed = FALSE
+       AND (owner_id = $2 OR EXISTS (
+         SELECT 1 FROM folder_members WHERE folder_id = $1 AND user_id = $2
+       ))`,
       [req.params.id, req.user.id]
     );
     if (!folder.rows[0]) return res.status(404).json({ error: 'Folder not found' });
