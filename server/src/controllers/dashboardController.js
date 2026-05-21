@@ -57,4 +57,31 @@ async function search(req, res, next) {
   }
 }
 
-module.exports = { quota, recent, search };
+// GET /dashboard/breakdown
+async function breakdown(req, res, next) {
+  try {
+    const result = await query(
+      `SELECT
+         CASE
+           WHEN mime_type LIKE 'image/%'                               THEN 'Images'
+           WHEN mime_type LIKE 'video/%'                               THEN 'Videos'
+           WHEN mime_type LIKE 'audio/%'                               THEN 'Audio'
+           WHEN mime_type LIKE 'application/pdf'
+             OR mime_type LIKE 'text/%'                                THEN 'Documents'
+           ELSE 'Other'
+         END AS category,
+         COUNT(*)::int  AS count,
+         SUM(size)::bigint AS total_size
+       FROM files
+       WHERE owner_id = $1 AND trashed = FALSE
+       GROUP BY category
+       ORDER BY total_size DESC`,
+      [req.user.id]
+    );
+    return res.json(result.rows);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { quota, recent, search, breakdown };
