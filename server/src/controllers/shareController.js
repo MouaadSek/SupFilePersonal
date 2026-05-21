@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
+const fs = require('fs');
 const { query } = require('../db');
 
 function generateToken() {
@@ -39,7 +40,7 @@ async function access(req, res, next) {
     }
 
     if (share.password_hash) {
-      const { password } = req.body;
+      const password = req.body?.password || req.query.password;
       if (!password) return res.status(403).json({ error: 'Password required', protected: true });
       const match = await bcrypt.compare(password, share.password_hash);
       if (!match) return res.status(403).json({ error: 'Wrong password' });
@@ -106,4 +107,38 @@ async function sharedWithMe(req, res, next) {
   }
 }
 
-module.exports = { create, access, revoke, list, sharedWithMe };
+// GET /shares/:token/download  (public — streams the file)
+async function downloadShare(req, res, next) {
+  try {
+    const result = await query('SELECT * FROM shares WHERE token = $1', [req.params.token]);
+    const share = result.rows[0];
+    if (!share) return res.status(404).json({ error: 'Link not found' });
+    if (share.expires_at && new Date(share.expires_at) < new Date()) {
+      return res.status(410).json({ error: 'Link has expired' });
+    }
+
+    if (share.password_hash) {
+      const password = req.query.password;
+      if (!password) return res.status(403).json({ error: 'Password required', protected: true });
+      const match = await bcrypt.compare(password, share.password_hash);
+      if (!match) return res.status(403).json({ error: 'Wrong password' });
+    }
+
+    if (!share.file_id) return res.status(400).json({ error: 'This share link is for a folder' });
+
+    const fileResult = await query(
+      'SELECT * FROM files WHERE id = $1 AND trashed = FALSE',
+      [share.file_id]
+    );
+    const file = fileResult.rows[0];
+    if (!file) return res.status(404).json({ error: 'File not found' });
+
+    res.setHeader('Content-Disposition', `attachment; filename="${file.name}"`);
+    res.setHeader('Content-Type', file.mime_type);
+    fs.createReadStream(file.storage_path).pipe(res);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { create, access, revoke, list, sharedWithMe, downloadShare };
