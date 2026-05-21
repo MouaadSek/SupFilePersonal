@@ -568,6 +568,18 @@ export default function FilesPage() {
     setTimeout(() => setToast(null), 3000);
   }
 
+  // ── Block browser's default file-open on drag-drop anywhere on the page ──
+
+  useEffect(() => {
+    const prevent = (e: DragEvent) => e.preventDefault();
+    document.addEventListener('dragover', prevent);
+    document.addEventListener('drop', prevent);
+    return () => {
+      document.removeEventListener('dragover', prevent);
+      document.removeEventListener('drop', prevent);
+    };
+  }, []);
+
   // ── URL param — navigate to a shared folder ──────────────────────────────
 
   useEffect(() => {
