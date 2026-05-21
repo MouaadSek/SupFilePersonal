@@ -557,6 +557,10 @@ export default function FilesPage() {
   // toast
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
+  // desktop drag-to-upload overlay
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [currentFileName, setCurrentFileName] = useState<string | null>(null);
+
   function showToast(msg: string, type: 'success' | 'error' = 'success') {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
@@ -623,12 +627,11 @@ export default function FilesPage() {
 
   // ── Upload ───────────────────────────────────────────────────────────────
 
-  async function handleUpload(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function uploadSingleFile(file: File): Promise<boolean> {
     setUploading(true);
     setUploadPct(0);
     setUploadError(null);
+    setCurrentFileName(file.name);
 
     const form = new FormData();
     form.append('file', file);
@@ -641,8 +644,8 @@ export default function FilesPage() {
           if (ev.total) setUploadPct(Math.round((ev.loaded / ev.total) * 100));
         },
       });
-      load(folderId);
-      showToast('File uploaded successfully!');
+      showToast(`"${file.name}" uploaded!`);
+      return true;
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
@@ -655,11 +658,20 @@ export default function FilesPage() {
       } else {
         setUploadError('Upload failed. Please try again.');
       }
+      return false;
     } finally {
       setUploading(false);
       setUploadPct(0);
+      setCurrentFileName(null);
       if (fileInput.current) fileInput.current.value = '';
     }
+  }
+
+  async function handleUpload(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await uploadSingleFile(file);
+    load(folderId);
   }
 
   // ── Drag & drop ──────────────────────────────────────────────────────────
@@ -702,6 +714,33 @@ export default function FilesPage() {
     } catch {
       showToast('Failed to move file.', 'error');
     }
+  }
+
+  // ── Page-level drag & drop for desktop-file upload ───────────────────────
+
+  function handlePageDragOver(e: React.DragEvent) {
+    if (draggingFile) return;
+    if (!e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+    setIsDragOver(true);
+  }
+
+  function handlePageDragLeave(e: React.DragEvent) {
+    if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) {
+      setIsDragOver(false);
+    }
+  }
+
+  async function handlePageDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragOver(false);
+    if (draggingFile) return;
+    const dropped = Array.from(e.dataTransfer.files);
+    if (!dropped.length) return;
+    for (const file of dropped) {
+      await uploadSingleFile(file);
+    }
+    load(folderId);
   }
 
   // ── Preview ──────────────────────────────────────────────────────────────
@@ -801,7 +840,7 @@ export default function FilesPage() {
       {uploading && (
         <div className="mb-4">
           <div className="flex items-center justify-between text-xs text-slate-mid mb-1.5">
-            <span>Uploading…</span>
+            <span>Uploading{currentFileName ? ` "${currentFileName}"` : ''}…</span>
             <span className="font-medium text-brand">{uploadPct}%</span>
           </div>
           <div className="h-2 bg-slate-light/60 rounded-full overflow-hidden">
@@ -824,7 +863,21 @@ export default function FilesPage() {
       )}
 
       {/* ── Content ── */}
-      {loading ? (
+      <div
+        className="relative"
+        onDragOver={handlePageDragOver}
+        onDragLeave={handlePageDragLeave}
+        onDrop={handlePageDrop}
+      >
+        {isDragOver && (
+          <div className="absolute inset-0 z-30 flex flex-col items-center justify-center
+                          rounded-2xl border-2 border-dashed border-brand bg-brand/5 min-h-48
+                          pointer-events-none">
+            <p className="text-xl font-bold text-brand">Drop files to upload</p>
+            <p className="text-sm text-slate-mid mt-1">Release to upload to the current folder</p>
+          </div>
+        )}
+        {loading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
           {Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
         </div>
@@ -1023,6 +1076,8 @@ export default function FilesPage() {
           )}
         </div>
       )}
+
+      </div>
 
       {/* ── Modals ── */}
       {showNewFolder && (
