@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/api';
@@ -57,8 +57,15 @@ function ThemeToggle({ isDark, onToggle }: { isDark: boolean; onToggle: () => vo
   );
 }
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+
 export default function SettingsPage() {
   const { user, loading: authLoading, logout } = useAuth();
+
+  // avatar
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [localAvatarUrl, setLocalAvatarUrl] = useState<string | null>(null);
+  const [avatarLoading,  setAvatarLoading]  = useState(false);
 
   // profile
   const [displayName, setDisplayName] = useState('');
@@ -91,6 +98,26 @@ export default function SettingsPage() {
   function showToast(message: string, type: 'success' | 'error') {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
+  }
+
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarLoading(true);
+    try {
+      const form = new FormData();
+      form.append('avatar', file);
+      const res = await api.post('/users/me/avatar', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setLocalAvatarUrl(res.data.avatar_url);
+      showToast('Avatar updated!', 'success');
+    } catch {
+      showToast('Failed to upload avatar.', 'error');
+    } finally {
+      setAvatarLoading(false);
+      if (e.target) e.target.value = '';
+    }
   }
 
   function handleThemeToggle() {
@@ -155,9 +182,50 @@ export default function SettingsPage() {
 
         {/* ── Avatar + name header ── */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-light dark:border-slate-700 px-6 py-5 flex items-center gap-5">
-          <div className="w-16 h-16 rounded-2xl bg-brand/15 flex items-center justify-center text-brand font-bold text-2xl shrink-0">
-            {user?.display_name?.[0]?.toUpperCase() ?? '?'}
-          </div>
+          {(() => {
+            const avatarSrc = localAvatarUrl
+              ? `${API_BASE}${localAvatarUrl}`
+              : user?.avatar_url
+                ? `${API_BASE}${user.avatar_url}`
+                : null;
+            return (
+              <>
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  title="Click to change avatar"
+                  className="relative w-16 h-16 rounded-2xl shrink-0 cursor-pointer group focus:outline-none focus:ring-2 focus:ring-brand"
+                >
+                  {avatarSrc ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={avatarSrc} alt="Avatar" className="w-full h-full rounded-2xl object-cover" />
+                  ) : (
+                    <div className="w-full h-full rounded-2xl bg-brand/15 flex items-center justify-center text-brand font-bold text-2xl">
+                      {user?.display_name?.[0]?.toUpperCase() ?? '?'}
+                    </div>
+                  )}
+                  <div className="absolute inset-0 rounded-2xl bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                    <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                      <circle cx="12" cy="13" r="4" />
+                    </svg>
+                  </div>
+                  {avatarLoading && (
+                    <div className="absolute inset-0 rounded-2xl bg-black/50 flex items-center justify-center">
+                      <div className="w-5 h-5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                    </div>
+                  )}
+                </button>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  className="hidden"
+                  onChange={handleAvatarUpload}
+                />
+              </>
+            );
+          })()}
           <div>
             {authLoading
               ? <><Skeleton className="h-5 w-32 mb-1" /><Skeleton className="h-4 w-48" /></>
@@ -166,6 +234,7 @@ export default function SettingsPage() {
                   {user?.display_name || 'No name set'}
                 </p>
                 <p className="text-sm text-slate-mid dark:text-slate-400">{user?.email}</p>
+                <p className="text-xs text-slate-mid dark:text-slate-400 mt-0.5">Click avatar to change photo</p>
               </>
             }
           </div>

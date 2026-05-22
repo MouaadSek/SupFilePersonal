@@ -15,12 +15,15 @@ const dashboardRoutes = require('./routes/dashboard');
 
 const app = express();
 
-app.use(helmet());
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors({
   origin: process.env.CLIENT_ORIGIN || 'http://localhost:4000',
   credentials: true,
 }));
 app.use(express.json());
+
+const STORAGE_PATH = process.env.STORAGE_PATH || './storage';
+app.use('/avatars', express.static(path.resolve(STORAGE_PATH)));
 app.use(require('passport').initialize());
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
