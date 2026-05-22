@@ -54,6 +54,9 @@ CREATE TABLE IF NOT EXISTS files (
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Encryption flag — added after initial release; idempotent on re-run
+ALTER TABLE files ADD COLUMN IF NOT EXISTS encrypted BOOLEAN NOT NULL DEFAULT FALSE;
+
 -- ──────────────────────────────────────────────────────────────
 -- 4. SHARES (public links)
 -- ──────────────────────────────────────────────────────────────

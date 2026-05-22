@@ -54,4 +54,18 @@ router.post('/me/avatar', auth, upload.single('avatar'), async (req, res, next) 
   } catch (err) { next(err); }
 });
 
+// GET /users/lookup?email=... — find a user by email (for folder sharing)
+router.get('/lookup', auth, async (req, res, next) => {
+  try {
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ error: 'email query param is required' });
+    const result = await query(
+      'SELECT id, email, display_name FROM users WHERE LOWER(email) = LOWER($1)',
+      [email.trim()]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'User not found' });
+    return res.json(result.rows[0]);
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

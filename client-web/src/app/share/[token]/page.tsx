@@ -1,0 +1,231 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+
+interface ShareResource {
+  id: string;
+  name: string;
+  mime_type?: string;
+  size?: number;
+}
+
+interface ShareData {
+  type: 'file' | 'folder';
+  resource: ShareResource;
+}
+
+type PageState = 'loading' | 'protected' | 'expired' | 'not_found' | 'error' | 'ready';
+
+function formatBytes(bytes: number) {
+  if (!bytes) return '0 B';
+  const gb = bytes / 1_073_741_824;
+  if (gb >= 1) return `${gb.toFixed(2)} GB`;
+  const mb = bytes / 1_048_576;
+  if (mb >= 1) return `${mb.toFixed(1)} MB`;
+  return `${Math.round(bytes / 1024)} KB`;
+}
+
+function FileTypeIcon({ mime }: { mime?: string }) {
+  if (!mime) return <span className="text-5xl">📂</span>;
+  if (mime.startsWith('image/')) return <span className="text-5xl">🖼️</span>;
+  if (mime.startsWith('video/')) return <span className="text-5xl">🎬</span>;
+  if (mime.startsWith('audio/')) return <span className="text-5xl">🎵</span>;
+  if (mime === 'application/pdf') return <span className="text-5xl">📄</span>;
+  return <span className="text-5xl">📁</span>;
+}
+
+export default function SharePage({ params }: { params: { token: string } }) {
+  const { token } = params;
+
+  const [pageState, setPageState] = useState<PageState>('loading');
+  const [shareData, setShareData] = useState<ShareData | null>(null);
+  const [password, setPassword] = useState('');
+  const [verifiedPw, setVerifiedPw] = useState<string | null>(null);
+  const [pwError, setPwError] = useState('');
+  const [pwLoading, setPwLoading] = useState(false);
+
+  useEffect(() => {
+    async function init() {
+      const res = await fetch(`${API_BASE}/shares/${token}`);
+      if (res.status === 404) { setPageState('not_found'); return; }
+      if (res.status === 410) { setPageState('expired'); return; }
+      if (res.status === 403) { setPageState('protected'); return; }
+      if (!res.ok) { setPageState('error'); return; }
+      setShareData(await res.json());
+      setPageState('ready');
+    }
+    init();
+  }, [token]);
+
+  async function submitPassword(e: React.FormEvent) {
+    e.preventDefault();
+    const pw = password.trim();
+    if (!pw) return;
+    setPwLoading(true);
+    setPwError('');
+
+    const res = await fetch(`${API_BASE}/shares/${token}?password=${encodeURIComponent(pw)}`);
+    const data = await res.json();
+
+    if (res.status === 403) {
+      setPwError('Incorrect password. Please try again.');
+    } else if (res.ok) {
+      setShareData(data as ShareData);
+      setVerifiedPw(pw);
+      setPageState('ready');
+    } else {
+      setPwError('Something went wrong. Please try again.');
+    }
+    setPwLoading(false);
+  }
+
+  function getDownloadUrl() {
+    const base = `${API_BASE}/shares/${token}/download`;
+    return verifiedPw ? `${base}?password=${encodeURIComponent(verifiedPw)}` : base;
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col items-center justify-center p-4">
+      {/* Logo */}
+      <div className="mb-8 text-center">
+        <h1 className="text-3xl font-bold text-slate-800">
+          <span className="text-blue-500">SUP</span>File
+        </h1>
+        <p className="text-slate-500 text-sm mt-1">Secure file sharing</p>
+      </div>
+
+      <div className="w-full max-w-md">
+        {pageState === 'loading' && (
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-10 flex flex-col items-center gap-4">
+            <div className="w-10 h-10 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
+            <p className="text-slate-500 text-sm">Loading shared content…</p>
+          </div>
+        )}
+
+        {pageState === 'not_found' && (
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-10 text-center">
+            <p className="text-4xl mb-4">🔗</p>
+            <h2 className="text-xl font-semibold text-slate-800 mb-2">Link not found</h2>
+            <p className="text-slate-500 text-sm">This share link does not exist or has been revoked.</p>
+          </div>
+        )}
+
+        {pageState === 'expired' && (
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-10 text-center">
+            <p className="text-4xl mb-4">⏰</p>
+            <h2 className="text-xl font-semibold text-slate-800 mb-2">This link has expired</h2>
+            <p className="text-slate-500 text-sm">
+              The owner can create a new link if you still need access.
+            </p>
+          </div>
+        )}
+
+        {pageState === 'error' && (
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-10 text-center">
+            <p className="text-4xl mb-4">⚠️</p>
+            <h2 className="text-xl font-semibold text-slate-800 mb-2">Something went wrong</h2>
+            <p className="text-slate-500 text-sm">Could not load this share link. Please try again later.</p>
+          </div>
+        )}
+
+        {pageState === 'protected' && (
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-8">
+            <div className="text-center mb-6">
+              <p className="text-4xl mb-3">🔒</p>
+              <h2 className="text-xl font-semibold text-slate-800">Password required</h2>
+              <p className="text-slate-500 text-sm mt-1">This link is password-protected.</p>
+            </div>
+
+            {pwError && (
+              <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">
+                {pwError}
+              </div>
+            )}
+
+            <form onSubmit={submitPassword} className="space-y-4">
+              <input
+                autoFocus
+                type="password"
+                placeholder="Enter password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-800
+                           focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent
+                           text-sm placeholder:text-slate-400"
+              />
+              <button
+                type="submit"
+                disabled={!password.trim() || pwLoading}
+                className="w-full py-3 bg-blue-500 text-white rounded-xl font-medium text-sm
+                           hover:bg-blue-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {pwLoading ? 'Verifying…' : 'Unlock'}
+              </button>
+            </form>
+          </div>
+        )}
+
+        {pageState === 'ready' && shareData && (
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+            <div className="h-1.5 bg-gradient-to-r from-blue-400 to-blue-600" />
+
+            <div className="p-8 text-center">
+              <div className="mb-4 flex justify-center">
+                <FileTypeIcon mime={shareData.resource.mime_type} />
+              </div>
+
+              <h2 className="text-lg font-semibold text-slate-800 break-all mb-1">
+                {shareData.resource.name}
+              </h2>
+
+              <div className="flex items-center justify-center gap-3 text-xs text-slate-400 mb-6">
+                {shareData.type === 'file' ? (
+                  <>
+                    <span className="capitalize">
+                      {shareData.resource.mime_type?.split('/')[1] ?? 'file'}
+                    </span>
+                    {shareData.resource.size !== undefined && (
+                      <>
+                        <span>·</span>
+                        <span>{formatBytes(shareData.resource.size)}</span>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <span>Shared folder</span>
+                )}
+              </div>
+
+              {shareData.type === 'file' ? (
+                <a
+                  href={getDownloadUrl()}
+                  className="inline-flex items-center justify-center gap-2 w-full px-6 py-3
+                             bg-blue-500 text-white rounded-xl font-medium text-sm
+                             hover:bg-blue-600 transition"
+                >
+                  <svg width={16} height={16} viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  Download file
+                </a>
+              ) : (
+                <div className="px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 text-sm">
+                  Folder contents can only be accessed by the file owner.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <p className="mt-8 text-xs text-slate-400">
+        Shared via SUPFile &mdash; secure cloud storage
+      </p>
+    </div>
+  );
+}

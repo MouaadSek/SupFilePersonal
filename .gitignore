@@ -42,3 +42,8 @@ Thumbs.db
 # Server upload volume — never commit uploaded files
 server/storage/*
 !server/storage/.gitkeep
+.claude/
+ 
+.claude/
+ 
+ 

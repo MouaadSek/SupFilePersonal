@@ -22,7 +22,10 @@ async function listRoot(req, res, next) {
 async function listFolder(req, res, next) {
   try {
     const folder = await query(
-      'SELECT * FROM folders WHERE id = $1 AND owner_id = $2 AND trashed = FALSE',
+      `SELECT * FROM folders WHERE id = $1 AND trashed = FALSE
+       AND (owner_id = $2 OR EXISTS (
+         SELECT 1 FROM folder_members WHERE folder_id = $1 AND user_id = $2
+       ))`,
       [req.params.id, req.user.id]
     );
     if (!folder.rows[0]) return res.status(404).json({ error: 'Folder not found' });
@@ -45,7 +48,6 @@ async function listFolder(req, res, next) {
 async function create(req, res, next) {
   try {
     const { name, parent_id } = req.body;
-    if (!name) return res.status(400).json({ error: 'name is required' });
 
     const result = await query(
       'INSERT INTO folders (name, parent_id, owner_id) VALUES ($1, $2, $3) RETURNING *',
@@ -115,6 +117,18 @@ async function addMember(req, res, next) {
     const { user_id, permission = 'read' } = req.body;
     if (!user_id) return res.status(400).json({ error: 'user_id is required' });
 
+    const folderResult = await query(
+      'SELECT owner_id FROM folders WHERE id = $1 AND trashed = FALSE',
+      [req.params.id]
+    );
+    if (!folderResult.rows[0]) return res.status(404).json({ error: 'Folder not found' });
+    if (folderResult.rows[0].owner_id !== req.user.id) {
+      return res.status(403).json({ error: 'Only the folder owner can manage sharing' });
+    }
+    if (user_id === req.user.id) {
+      return res.status(400).json({ error: 'Cannot share a folder with yourself' });
+    }
+
     await query(
       `INSERT INTO folder_members (folder_id, user_id, permission) VALUES ($1, $2, $3)
        ON CONFLICT (folder_id, user_id) DO UPDATE SET permission = EXCLUDED.permission`,
@@ -129,6 +143,15 @@ async function addMember(req, res, next) {
 // DELETE /folders/:id/members/:userId
 async function removeMember(req, res, next) {
   try {
+    const folderResult = await query(
+      'SELECT owner_id FROM folders WHERE id = $1',
+      [req.params.id]
+    );
+    if (!folderResult.rows[0]) return res.status(404).json({ error: 'Folder not found' });
+    if (folderResult.rows[0].owner_id !== req.user.id) {
+      return res.status(403).json({ error: 'Only the folder owner can manage sharing' });
+    }
+
     await query(
       'DELETE FROM folder_members WHERE folder_id = $1 AND user_id = $2',
       [req.params.id, req.params.userId]
@@ -139,4 +162,19 @@ async function removeMember(req, res, next) {
   }
 }
 
-module.exports = { listRoot, listFolder, create, update, trash, zip, addMember, removeMember };
+// POST /folders/:id/restore
+async function restore(req, res, next) {
+  try {
+    const result = await query(
+      'UPDATE folders SET trashed = FALSE WHERE id = $1 AND owner_id = $2 RETURNING *',
+      [req.params.id, req.user.id]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'Folder not found in trash' });
+    await query('UPDATE files SET trashed = FALSE WHERE folder_id = $1', [req.params.id]);
+    return res.json(result.rows[0]);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { listRoot, listFolder, create, update, trash, zip, addMember, removeMember, restore };

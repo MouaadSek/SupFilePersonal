@@ -36,13 +36,17 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
   const pct = Math.min(100, Math.round((quotaUsed / quotaTotal) * 100));
 
   return (
-    <div className="flex min-h-screen bg-brand-bg">
+    <div className="flex min-h-screen bg-brand-bg dark:bg-slate-900">
+
       {/* ── Sidebar ── */}
-      <aside className="hidden md:flex flex-col w-64 shrink-0 bg-white border-r border-slate-light">
+      <aside className="hidden md:flex flex-col w-64 shrink-0
+                        bg-white dark:bg-slate-800
+                        border-r border-slate-light dark:border-slate-700">
+
         {/* Logo */}
-        <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-light">
+        <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-light dark:border-slate-700">
           <Image src="/supfile.png" alt="SUPFile" width={32} height={32} className="rounded-lg" priority />
-          <span className="font-bold text-slate-dark text-lg tracking-tight">SUPFile</span>
+          <span className="font-bold text-slate-dark dark:text-slate-100 text-lg tracking-tight">SUPFile</span>
         </div>
 
         {/* Nav */}
@@ -55,11 +59,11 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
                 href={href}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                   active
-                    ? 'bg-brand/10 text-brand'
-                    : 'text-slate-mid hover:bg-brand-bg hover:text-slate-dark'
+                    ? 'bg-brand/10 text-brand dark:bg-brand/20 dark:text-brand'
+                    : 'text-slate-mid dark:text-slate-400 hover:bg-brand-bg dark:hover:bg-slate-700 hover:text-slate-dark dark:hover:text-slate-100'
                 }`}
               >
-                <span className={active ? 'text-brand' : 'text-slate-mid'}>
+                <span className={active ? 'text-brand' : 'text-slate-mid dark:text-slate-500'}>
                   <Icon />
                 </span>
                 {label}
@@ -69,33 +73,35 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
         </nav>
 
         {/* Quota bar */}
-        <div className="px-5 py-4 border-t border-slate-light space-y-2">
-          <div className="flex justify-between text-xs text-slate-mid">
+        <div className="px-5 py-4 border-t border-slate-light dark:border-slate-700 space-y-2">
+          <div className="flex justify-between text-xs text-slate-mid dark:text-slate-400">
             <span>Storage</span>
             <span>{formatBytes(quotaUsed)} / {formatBytes(quotaTotal)}</span>
           </div>
-          <div className="h-1.5 bg-brand-bg rounded-full overflow-hidden">
+          <div className="h-1.5 bg-brand-bg dark:bg-slate-700 rounded-full overflow-hidden">
             <div
               className="h-full bg-brand rounded-full transition-all duration-500"
               style={{ width: `${pct}%` }}
             />
           </div>
-          <p className="text-xs text-slate-mid">{pct}% used</p>
+          <p className="text-xs text-slate-mid dark:text-slate-400">{pct}% used</p>
         </div>
 
         {/* User + logout */}
-        <div className="px-4 py-4 border-t border-slate-light flex items-center gap-3">
+        <div className="px-4 py-4 border-t border-slate-light dark:border-slate-700 flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-brand/20 flex items-center justify-center text-brand font-semibold text-sm">
             {user?.display_name?.[0]?.toUpperCase() ?? '?'}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-dark truncate">{user?.display_name || 'User'}</p>
-            <p className="text-xs text-slate-mid truncate">{user?.email}</p>
+            <p className="text-sm font-medium text-slate-dark dark:text-slate-100 truncate">
+              {user?.display_name || 'User'}
+            </p>
+            <p className="text-xs text-slate-mid dark:text-slate-400 truncate">{user?.email}</p>
           </div>
           <button
             onClick={onLogout}
             aria-label="Logout"
-            className="text-slate-mid hover:text-red-500 transition-colors cursor-pointer"
+            className="text-slate-mid dark:text-slate-400 hover:text-red-500 transition-colors cursor-pointer"
           >
             <IconLogout />
           </button>
@@ -104,17 +110,17 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
 
       {/* ── Main ── */}
       <div className="flex-1 flex flex-col min-w-0">
+
         {/* Top bar */}
-        <header className="bg-white border-b border-slate-light px-6 py-4 flex items-center gap-4">
-          {/* Mobile logo */}
+        <header className="bg-white dark:bg-slate-800 border-b border-slate-light dark:border-slate-700 px-6 py-4 flex items-center gap-4">
           <div className="md:hidden flex items-center gap-2 mr-2">
             <Image src="/supfile.png" alt="SUPFile" width={28} height={28} className="rounded-lg" />
-            <span className="font-bold text-slate-dark">SUPFile</span>
+            <span className="font-bold text-slate-dark dark:text-slate-100">SUPFile</span>
           </div>
 
           <div className="flex-1" />
 
-          <div className="text-sm text-slate-mid hidden sm:block">
+          <div className="text-sm text-slate-mid dark:text-slate-400 hidden sm:block">
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </div>
         </header>

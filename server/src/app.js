@@ -1,6 +1,7 @@
 require('dotenv').config();
 const fs   = require('fs');
 const path = require('path');
+const encryptionService = require('./services/encryptionService');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -20,10 +21,12 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+app.use(require('passport').initialize());
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
-app.use('/auth',      authRoutes);
+app.use('/auth/oauth', require('./routes/oauth'));
+app.use('/auth',       authRoutes);
 app.use('/files',     fileRoutes);
 app.use('/folders',   folderRoutes);
 app.use('/shares',    shareRoutes);
@@ -46,6 +49,7 @@ const PORT = process.env.PORT || 3000;
 
 migrate()
   .then(() => {
+    encryptionService.logStartupWarning();
     app.listen(PORT, () => console.log(`SUPFile server running on port ${PORT}`));
   })
   .catch((err) => {
