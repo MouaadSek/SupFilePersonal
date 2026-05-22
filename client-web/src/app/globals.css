@@ -12,6 +12,42 @@
   --text-dark:   #364751;
   --text-mid:    #858c92;
   --border:      #cdd0d3;
+
+  /* shadcn/ui tokens — mapped to SupFile brand palette */
+  --background:             210 44% 95%;   /* brand-bg #edf3f9  */
+  --foreground:             203 20% 26%;   /* slate-dark #364751 */
+  --primary:                207 98% 58%;   /* brand #2da2fd     */
+  --primary-foreground:     0 0% 100%;
+  --secondary:              210 44% 92%;
+  --secondary-foreground:   203 20% 26%;
+  --muted:                  210 44% 92%;
+  --muted-foreground:       210 5% 55%;    /* slate-mid #858c92 */
+  --accent:                 208 97% 82%;   /* brand-pale #a5d3fe */
+  --accent-foreground:      203 20% 26%;
+  --destructive:            0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border:                 210 5% 82%;    /* slate-light #cdd0d3 */
+  --input:                  210 5% 82%;
+  --ring:                   207 98% 58%;   /* brand #2da2fd     */
+  --radius:                 0.75rem;
+}
+
+.dark {
+  --background:             222 47% 11%;
+  --foreground:             210 40% 98%;
+  --primary:                207 98% 58%;
+  --primary-foreground:     0 0% 100%;
+  --secondary:              217 33% 17%;
+  --secondary-foreground:   210 40% 98%;
+  --muted:                  217 33% 17%;
+  --muted-foreground:       215 20% 65%;
+  --accent:                 208 97% 82%;
+  --accent-foreground:      222 47% 11%;
+  --destructive:            0 63% 31%;
+  --destructive-foreground: 0 0% 100%;
+  --border:                 217 33% 17%;
+  --input:                  217 33% 17%;
+  --ring:                   207 98% 58%;
 }
 
 * { box-sizing: border-box; }

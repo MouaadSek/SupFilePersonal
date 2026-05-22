@@ -13,6 +13,9 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
+# sharp + native deps on Alpine (musl)
+RUN apk add --no-cache libc6-compat vips-dev
+
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
