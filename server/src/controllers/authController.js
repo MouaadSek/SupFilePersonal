@@ -17,17 +17,7 @@ async function register(req, res, next) {
   try {
     const { email, password, display_name } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ error: 'email and password are required' });
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ error: 'Invalid email format' });
-    }
-    if (password.length < 8) {
-      return res.status(400).json({ error: 'Password must be at least 8 characters' });
-    }
-
-    const existing = await query('SELECT id FROM users WHERE email = $1', [email]);
+    const existing = await query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
     if (existing.rows.length > 0) {
       return res.status(409).json({ error: 'Email already in use' });
     }
@@ -51,9 +41,6 @@ async function register(req, res, next) {
 async function login(req, res, next) {
   try {
     const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: 'email and password are required' });
-    }
 
     const result = await query(
       'SELECT id, email, password_hash, display_name, avatar_url, quota_used, quota_total FROM users WHERE email = $1',
