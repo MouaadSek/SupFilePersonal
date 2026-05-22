@@ -566,6 +566,10 @@ export default function FilesPage() {
   // three-dot action menu
   const [activeMenu, setActiveMenu] = useState<{ type: 'file' | 'folder'; id: string } | null>(null);
 
+  // inline rename
+  const [renameTarget, setRenameTarget] = useState<{ type: 'file' | 'folder'; id: string } | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+
   // search
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -723,6 +727,38 @@ export default function FilesPage() {
   async function trashFolder(id: string) {
     await api.delete(`/folders/${id}`);
     load(folderId);
+  }
+
+  async function renameFile(id: string, newName: string) {
+    if (!newName.trim()) { setRenameTarget(null); return; }
+    try {
+      await api.patch(`/files/${id}`, { name: newName.trim() });
+      setFiles((prev) => prev.map((f) => f.id === id ? { ...f, name: newName.trim() } : f));
+      showToast(`Renamed to "${newName.trim()}"`);
+    } catch {
+      showToast('Rename failed.', 'error');
+    } finally {
+      setRenameTarget(null);
+    }
+  }
+
+  async function renameFolder(id: string, newName: string) {
+    if (!newName.trim()) { setRenameTarget(null); return; }
+    try {
+      await api.patch(`/folders/${id}`, { name: newName.trim() });
+      setFolders((prev) => prev.map((f) => f.id === id ? { ...f, name: newName.trim() } : f));
+      showToast(`Renamed to "${newName.trim()}"`);
+    } catch {
+      showToast('Rename failed.', 'error');
+    } finally {
+      setRenameTarget(null);
+    }
+  }
+
+  function startRename(type: 'file' | 'folder', id: string, currentName: string) {
+    setRenameTarget({ type, id });
+    setRenameValue(currentName);
+    setActiveMenu(null);
   }
 
   // ── Upload ───────────────────────────────────────────────────────────────
@@ -1251,9 +1287,25 @@ export default function FilesPage() {
                             </svg>
                           </div>
 
-                          <p className="text-xs font-medium text-slate-dark dark:text-slate-100 text-center truncate w-full">
-                            {f.name}
-                          </p>
+                          {renameTarget?.type === 'folder' && renameTarget?.id === f.id ? (
+                            <input
+                              autoFocus
+                              type="text"
+                              value={renameValue}
+                              onChange={(e) => setRenameValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') renameFolder(f.id, renameValue);
+                                if (e.key === 'Escape') setRenameTarget(null);
+                              }}
+                              onBlur={() => setRenameTarget(null)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-xs font-medium text-center w-full rounded px-1 py-0.5 bg-brand-bg dark:bg-slate-700 border border-brand focus:outline-none"
+                            />
+                          ) : (
+                            <p className="text-xs font-medium text-slate-dark dark:text-slate-100 text-center truncate w-full">
+                              {f.name}
+                            </p>
+                          )}
 
                           <div className="absolute top-2 right-2 flex items-center gap-0.5">
                             <button
@@ -1321,6 +1373,7 @@ export default function FilesPage() {
                                     { label: 'Download ZIP', action: () => { downloadZip(f); setActiveMenu(null); } },
                                     { label: 'Share link',   action: () => { setShareTarget({ type: 'folder', id: f.id, name: f.name }); setActiveMenu(null); } },
                                     { label: 'Share with…', action: () => { setFolderShareTarget(f); setActiveMenu(null); } },
+                                    { label: 'Rename',       action: () => startRename('folder', f.id, f.name) },
                                   ].map(({ label, action }) => (
                                     <button key={label} onClick={(e) => { e.stopPropagation(); action(); }}
                                       className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
@@ -1369,7 +1422,22 @@ export default function FilesPage() {
                             <FileIcon mime={f.mime_type} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-slate-dark dark:text-slate-100 truncate">{f.name}</p>
+                            {renameTarget?.type === 'file' && renameTarget?.id === f.id ? (
+                              <input
+                                autoFocus
+                                type="text"
+                                value={renameValue}
+                                onChange={(e) => setRenameValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') renameFile(f.id, renameValue);
+                                  if (e.key === 'Escape') setRenameTarget(null);
+                                }}
+                                onBlur={() => setRenameTarget(null)}
+                                className="text-sm font-medium w-full rounded px-1 py-0.5 bg-brand-bg dark:bg-slate-700 border border-brand focus:outline-none text-slate-dark dark:text-slate-100"
+                              />
+                            ) : (
+                              <p className="text-sm font-medium text-slate-dark dark:text-slate-100 truncate">{f.name}</p>
+                            )}
                             <p className="text-xs text-slate-mid dark:text-slate-400">{formatBytes(f.size)} · {timeAgo(f.updated_at)}</p>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
@@ -1419,6 +1487,10 @@ export default function FilesPage() {
                                     className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
                                     Download
                                   </a>
+                                  <button onClick={() => startRename('file', f.id, f.name)}
+                                    className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
+                                    Rename
+                                  </button>
                                   <button onClick={() => { trashFile(f.id); setActiveMenu(null); }}
                                     className="flex w-full items-center px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition text-left cursor-pointer">
                                     Move to trash
