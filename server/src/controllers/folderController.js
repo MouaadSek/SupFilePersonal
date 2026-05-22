@@ -148,7 +148,8 @@ async function removeMember(req, res, next) {
       [req.params.id]
     );
     if (!folderResult.rows[0]) return res.status(404).json({ error: 'Folder not found' });
-    if (folderResult.rows[0].owner_id !== req.user.id) {
+    // A user may always remove themselves; only the owner can remove others
+    if (req.params.userId !== req.user.id && folderResult.rows[0].owner_id !== req.user.id) {
       return res.status(403).json({ error: 'Only the folder owner can manage sharing' });
     }
 
