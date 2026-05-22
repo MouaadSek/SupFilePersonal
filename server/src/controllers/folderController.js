@@ -48,7 +48,6 @@ async function listFolder(req, res, next) {
 async function create(req, res, next) {
   try {
     const { name, parent_id } = req.body;
-    if (!name) return res.status(400).json({ error: 'name is required' });
 
     const result = await query(
       'INSERT INTO folders (name, parent_id, owner_id) VALUES ($1, $2, $3) RETURNING *',
