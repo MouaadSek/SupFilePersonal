@@ -32,26 +32,46 @@ async function recent(req, res, next) {
 async function search(req, res, next) {
   try {
     const { q, type, date } = req.query;
-    const params = [req.user.id];
-    let sql = `SELECT id, name, mime_type, size, folder_id, updated_at
-               FROM files WHERE owner_id = $1 AND trashed = FALSE`;
 
+    const fileParams = [req.user.id];
+    let fileSql = `SELECT id, name, mime_type, size, folder_id, updated_at
+                   FROM files WHERE owner_id = $1 AND trashed = FALSE`;
     if (q) {
-      params.push(`%${q}%`);
-      sql += ` AND name ILIKE $${params.length}`;
+      fileParams.push(`%${q}%`);
+      fileSql += ` AND name ILIKE $${fileParams.length}`;
     }
     if (type) {
-      params.push(`${type}%`);
-      sql += ` AND mime_type ILIKE $${params.length}`;
+      const types = type.split(',').map(t => t.trim()).filter(Boolean);
+      const typeConds = types.map(t => {
+        fileParams.push(`${t}%`);
+        return `mime_type ILIKE $${fileParams.length}`;
+      });
+      fileSql += ` AND (${typeConds.join(' OR ')})`;
     }
     if (date) {
-      params.push(date);
-      sql += ` AND updated_at::date >= $${params.length}::date`;
+      fileParams.push(date);
+      fileSql += ` AND updated_at::date >= $${fileParams.length}::date`;
     }
+    fileSql += ' ORDER BY updated_at DESC LIMIT 50';
 
-    sql += ' ORDER BY updated_at DESC LIMIT 50';
-    const result = await query(sql, params);
-    return res.json(result.rows);
+    const folderParams = [req.user.id];
+    let folderSql = `SELECT id, name, parent_id, updated_at
+                     FROM folders WHERE owner_id = $1 AND trashed = FALSE`;
+    if (q) {
+      folderParams.push(`%${q}%`);
+      folderSql += ` AND name ILIKE $${folderParams.length}`;
+    }
+    if (date) {
+      folderParams.push(date);
+      folderSql += ` AND updated_at::date >= $${folderParams.length}::date`;
+    }
+    folderSql += ' ORDER BY updated_at DESC LIMIT 20';
+
+    const [fileResult, folderResult] = await Promise.all([
+      query(fileSql, fileParams),
+      query(folderSql, folderParams),
+    ]);
+    return res.json({ files: fileResult.rows, folders: folderResult.rows });
   } catch (err) {
     next(err);
   }
