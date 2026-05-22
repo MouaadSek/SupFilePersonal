@@ -3,6 +3,7 @@ const path = require('path');
 const { query } = require('../db');
 const quotaService = require('../services/quotaService');
 const storageService = require('../services/storageService');
+const encryptionService = require('../services/encryptionService');
 
 const STORAGE_PATH = process.env.STORAGE_PATH || './storage';
 
@@ -17,11 +18,16 @@ async function upload(req, res, next) {
 
     await quotaService.checkAndIncrement(req.user.id, size);
 
+    const encrypted = encryptionService.isEnabled();
+    if (encrypted) {
+      await encryptionService.encryptFile(storage_path);
+    }
+
     const result = await query(
-      `INSERT INTO files (name, folder_id, owner_id, mime_type, size, storage_path)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO files (name, folder_id, owner_id, mime_type, size, storage_path, encrypted)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [originalname, folder_id || null, req.user.id, mimetype, size, storage_path]
+      [originalname, folder_id || null, req.user.id, mimetype, size, storage_path, encrypted]
     );
 
     return res.status(201).json(result.rows[0]);
@@ -42,13 +48,18 @@ async function download(req, res, next) {
 
     res.setHeader('Content-Disposition', `attachment; filename="${file.name}"`);
     res.setHeader('Content-Type', file.mime_type);
-    fs.createReadStream(file.storage_path).pipe(res);
+
+    if (file.encrypted) {
+      encryptionService.createDecryptStream(file.storage_path).pipe(res);
+    } else {
+      fs.createReadStream(file.storage_path).pipe(res);
+    }
   } catch (err) {
     next(err);
   }
 }
 
-// GET /files/:id/preview  (Range requests supported)
+// GET /files/:id/preview  (Range requests supported for unencrypted files)
 async function preview(req, res, next) {
   try {
     const result = await query(
@@ -57,6 +68,13 @@ async function preview(req, res, next) {
     );
     const file = result.rows[0];
     if (!file) return res.status(404).json({ error: 'File not found' });
+
+    if (file.encrypted) {
+      // AES-CBC doesn't support random access — serve full decrypted stream (no Range)
+      res.writeHead(200, { 'Content-Type': file.mime_type });
+      encryptionService.createDecryptStream(file.storage_path).pipe(res);
+      return;
+    }
 
     const stat = fs.statSync(file.storage_path);
     const total = stat.size;

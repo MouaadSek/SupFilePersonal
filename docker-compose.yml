@@ -40,6 +40,7 @@ services:
       OAUTH_CALLBACK_URL: ${OAUTH_CALLBACK_URL:-http://localhost:3000/auth/oauth/callback}
       STORAGE_PATH: /app/storage
       CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:4000}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
     volumes:
       - file_storage:/app/storage
     ports:

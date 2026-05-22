@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const fs = require('fs');
 const { query } = require('../db');
+const encryptionService = require('../services/encryptionService');
 
 function generateToken() {
   return crypto.randomBytes(24).toString('base64url');
@@ -135,7 +136,12 @@ async function downloadShare(req, res, next) {
 
     res.setHeader('Content-Disposition', `attachment; filename="${file.name}"`);
     res.setHeader('Content-Type', file.mime_type);
-    fs.createReadStream(file.storage_path).pipe(res);
+
+    if (file.encrypted) {
+      encryptionService.createDecryptStream(file.storage_path).pipe(res);
+    } else {
+      fs.createReadStream(file.storage_path).pipe(res);
+    }
   } catch (err) {
     next(err);
   }

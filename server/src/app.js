@@ -1,6 +1,7 @@
 require('dotenv').config();
 const fs   = require('fs');
 const path = require('path');
+const encryptionService = require('./services/encryptionService');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -48,6 +49,7 @@ const PORT = process.env.PORT || 3000;
 
 migrate()
   .then(() => {
+    encryptionService.logStartupWarning();
     app.listen(PORT, () => console.log(`SUPFile server running on port ${PORT}`));
   })
   .catch((err) => {
