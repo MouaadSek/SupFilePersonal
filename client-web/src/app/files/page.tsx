@@ -563,6 +563,9 @@ export default function FilesPage() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [currentFileName, setCurrentFileName] = useState<string | null>(null);
 
+  // three-dot action menu
+  const [activeMenu, setActiveMenu] = useState<{ type: 'file' | 'folder'; id: string } | null>(null);
+
   // search
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -576,6 +579,17 @@ export default function FilesPage() {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   }
+
+  // ── Close three-dot menu on outside click ────────────────────────────────
+
+  useEffect(() => {
+    if (!activeMenu) return;
+    function close(e: MouseEvent) {
+      if (!(e.target as HTMLElement).closest('[data-menu]')) setActiveMenu(null);
+    }
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [activeMenu]);
 
   // ── Block browser's default file-open on drag-drop anywhere on the page ──
 
@@ -1241,12 +1255,11 @@ export default function FilesPage() {
                             {f.name}
                           </p>
 
-                          <div className="absolute top-2 right-2 flex items-center gap-0.5
-                                          opacity-0 group-hover:opacity-100 transition">
+                          <div className="absolute top-2 right-2 flex items-center gap-0.5">
                             <button
                               onClick={(e) => { e.stopPropagation(); downloadZip(f); }}
                               title="Download as ZIP"
-                              className="text-slate-mid hover:text-brand transition p-1 rounded cursor-pointer"
+                              className="text-slate-mid hover:text-brand transition p-1 rounded cursor-pointer opacity-0 group-hover:opacity-100"
                             >
                               <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
                                 stroke="currentColor" strokeWidth={2}
@@ -1259,14 +1272,14 @@ export default function FilesPage() {
                             <button
                               onClick={(e) => { e.stopPropagation(); setShareTarget({ type: 'folder', id: f.id, name: f.name }); }}
                               title="Create share link"
-                              className="text-slate-mid hover:text-brand transition p-1 rounded cursor-pointer"
+                              className="text-slate-mid hover:text-brand transition p-1 rounded cursor-pointer opacity-0 group-hover:opacity-100"
                             >
                               <IconShare />
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); setFolderShareTarget(f); }}
                               title="Share with a teammate"
-                              className="text-slate-mid hover:text-brand transition p-1 rounded cursor-pointer"
+                              className="text-slate-mid hover:text-brand transition p-1 rounded cursor-pointer opacity-0 group-hover:opacity-100"
                             >
                               <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
                                 stroke="currentColor" strokeWidth={2}
@@ -1280,7 +1293,7 @@ export default function FilesPage() {
                             <button
                               onClick={(e) => { e.stopPropagation(); trashFolder(f.id); }}
                               title="Move to trash"
-                              className="text-slate-mid hover:text-red-500 transition p-1 rounded cursor-pointer"
+                              className="text-slate-mid hover:text-red-500 transition p-1 rounded cursor-pointer opacity-0 group-hover:opacity-100"
                             >
                               <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
                                 stroke="currentColor" strokeWidth={2}>
@@ -1290,6 +1303,37 @@ export default function FilesPage() {
                                 <path d="M9 6V4h6v2" />
                               </svg>
                             </button>
+
+                            {/* Three-dot menu — always visible for touch */}
+                            <div className="relative" data-menu>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu?.id === f.id && activeMenu.type === 'folder' ? null : { type: 'folder', id: f.id }); }}
+                                className="p-1 rounded text-slate-mid hover:text-brand hover:bg-slate-light/40 dark:hover:bg-slate-700 transition cursor-pointer"
+                                title="More actions"
+                              >
+                                <svg width={13} height={13} viewBox="0 0 24 24" fill="currentColor">
+                                  <circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" />
+                                </svg>
+                              </button>
+                              {activeMenu?.type === 'folder' && activeMenu?.id === f.id && (
+                                <div data-menu className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-light dark:border-slate-700 min-w-40 py-1.5">
+                                  {[
+                                    { label: 'Download ZIP', action: () => { downloadZip(f); setActiveMenu(null); } },
+                                    { label: 'Share link',   action: () => { setShareTarget({ type: 'folder', id: f.id, name: f.name }); setActiveMenu(null); } },
+                                    { label: 'Share with…', action: () => { setFolderShareTarget(f); setActiveMenu(null); } },
+                                  ].map(({ label, action }) => (
+                                    <button key={label} onClick={(e) => { e.stopPropagation(); action(); }}
+                                      className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
+                                      {label}
+                                    </button>
+                                  ))}
+                                  <button onClick={(e) => { e.stopPropagation(); trashFolder(f.id); setActiveMenu(null); }}
+                                    className="flex w-full items-center px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition text-left cursor-pointer">
+                                    Move to trash
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
@@ -1304,7 +1348,7 @@ export default function FilesPage() {
                   <h2 className="text-xs font-semibold text-slate-mid uppercase tracking-wider mb-3">
                     Files ({files.length})
                   </h2>
-                  <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-light dark:border-slate-700 overflow-hidden">
+                  <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-light dark:border-slate-700">
                     {files.map((f, i) => {
                       const { bg, color } = mimeColor(f.mime_type);
                       const isDragging = draggingFile?.id === f.id;
@@ -1314,9 +1358,10 @@ export default function FilesPage() {
                           draggable
                           onDragStart={(e) => handleDragStart(e, f)}
                           onDragEnd={handleDragEnd}
-                          className={`flex items-center gap-4 px-5 py-3.5 hover:bg-brand-bg/50 dark:hover:bg-slate-700/50 transition group
+                          className={`relative flex items-center gap-4 px-5 py-3.5 hover:bg-brand-bg/50 dark:hover:bg-slate-700/50 transition group
                                       cursor-grab active:cursor-grabbing
-                                      ${i !== files.length - 1 ? 'border-b border-slate-light/60 dark:border-slate-700/60' : ''}
+                                      ${i === 0 ? 'rounded-t-2xl' : ''}
+                                      ${i === files.length - 1 ? 'rounded-b-2xl' : 'border-b border-slate-light/60 dark:border-slate-700/60'}
                                       ${isDragging ? 'opacity-40 bg-brand-bg/30 dark:bg-slate-700/30' : ''}`}
                         >
                           <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
@@ -1327,35 +1372,60 @@ export default function FilesPage() {
                             <p className="text-sm font-medium text-slate-dark dark:text-slate-100 truncate">{f.name}</p>
                             <p className="text-xs text-slate-mid dark:text-slate-400">{formatBytes(f.size)} · {timeAgo(f.updated_at)}</p>
                           </div>
-                          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition shrink-0">
-                            <button
-                              onClick={() => openPreview(f)}
-                              className="text-xs px-3 py-1.5 rounded-lg border border-slate-light text-slate-mid
-                                         hover:border-brand hover:text-brand transition"
-                            >
-                              Preview
-                            </button>
-                            <button
-                              onClick={() => setShareTarget({ type: 'file', id: f.id, name: f.name })}
-                              className="text-xs px-3 py-1.5 rounded-lg border border-slate-light text-slate-mid
-                                         hover:border-brand hover:text-brand transition"
-                            >
-                              Share
-                            </button>
-                            <a
-                              href={`${API_BASE}/files/${f.id}/download?token=${getToken()}`}
-                              className="text-xs px-3 py-1.5 rounded-lg border border-slate-light text-slate-mid
-                                         hover:border-brand hover:text-brand transition"
-                            >
-                              Download
-                            </a>
-                            <button
-                              onClick={() => trashFile(f.id)}
-                              className="text-slate-mid hover:text-red-500 transition p-1 cursor-pointer"
-                              aria-label="Move to trash"
-                            >
-                              <IconTrash />
-                            </button>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {/* Hover-only action buttons (desktop) */}
+                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition">
+                              <button onClick={() => openPreview(f)}
+                                className="text-xs px-3 py-1.5 rounded-lg border border-slate-light text-slate-mid hover:border-brand hover:text-brand transition">
+                                Preview
+                              </button>
+                              <button onClick={() => setShareTarget({ type: 'file', id: f.id, name: f.name })}
+                                className="text-xs px-3 py-1.5 rounded-lg border border-slate-light text-slate-mid hover:border-brand hover:text-brand transition">
+                                Share
+                              </button>
+                              <a href={`${API_BASE}/files/${f.id}/download?token=${getToken()}`}
+                                className="text-xs px-3 py-1.5 rounded-lg border border-slate-light text-slate-mid hover:border-brand hover:text-brand transition">
+                                Download
+                              </a>
+                              <button onClick={() => trashFile(f.id)}
+                                className="text-slate-mid hover:text-red-500 transition p-1 cursor-pointer"
+                                aria-label="Move to trash">
+                                <IconTrash />
+                              </button>
+                            </div>
+                            {/* Three-dot menu — always visible */}
+                            <div className="relative" data-menu>
+                              <button
+                                onClick={() => setActiveMenu(activeMenu?.id === f.id && activeMenu.type === 'file' ? null : { type: 'file', id: f.id })}
+                                className="p-1.5 rounded-lg text-slate-mid hover:text-slate-dark dark:hover:text-slate-100 hover:bg-slate-light/40 dark:hover:bg-slate-700 transition cursor-pointer"
+                                title="More actions"
+                              >
+                                <svg width={15} height={15} viewBox="0 0 24 24" fill="currentColor">
+                                  <circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" />
+                                </svg>
+                              </button>
+                              {activeMenu?.type === 'file' && activeMenu?.id === f.id && (
+                                <div data-menu className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-light dark:border-slate-700 min-w-36 py-1.5">
+                                  <button onClick={() => { openPreview(f); setActiveMenu(null); }}
+                                    className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
+                                    Preview
+                                  </button>
+                                  <button onClick={() => { setShareTarget({ type: 'file', id: f.id, name: f.name }); setActiveMenu(null); }}
+                                    className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
+                                    Share
+                                  </button>
+                                  <a href={`${API_BASE}/files/${f.id}/download?token=${getToken()}`}
+                                    onClick={() => setActiveMenu(null)}
+                                    className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
+                                    Download
+                                  </a>
+                                  <button onClick={() => { trashFile(f.id); setActiveMenu(null); }}
+                                    className="flex w-full items-center px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition text-left cursor-pointer">
+                                    Move to trash
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );

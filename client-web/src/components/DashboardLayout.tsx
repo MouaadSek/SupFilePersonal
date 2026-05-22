@@ -34,6 +34,7 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const [searchVal, setSearchVal] = useState('');
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const quotaUsed  = Number(user?.quota_used  ?? 0);
   const quotaTotal = Number(user?.quota_total ?? 32212254720);
   const pct = Math.min(100, Math.round((quotaUsed / quotaTotal) * 100));
@@ -44,6 +45,7 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
   }
 
   return (
+    <>
     <div className="flex min-h-screen bg-brand-bg dark:bg-slate-900">
 
       {/* ── Sidebar ── */}
@@ -121,7 +123,19 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
 
         {/* Top bar */}
         <header className="bg-white dark:bg-slate-800 border-b border-slate-light dark:border-slate-700 px-6 py-4 flex items-center gap-4">
-          <div className="md:hidden flex items-center gap-2 mr-2">
+          <div className="md:hidden flex items-center gap-3 mr-2">
+            <button
+              onClick={() => setDrawerOpen(true)}
+              aria-label="Open menu"
+              className="text-slate-mid dark:text-slate-400 hover:text-slate-dark dark:hover:text-slate-100 transition"
+            >
+              <svg width={22} height={22} viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                <line x1="3" y1="6"  x2="21" y2="6"  />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
             <Image src="/supfile.png" alt="SUPFile" width={28} height={28} className="rounded-lg" />
             <span className="font-bold text-slate-dark dark:text-slate-100">SUPFile</span>
           </div>
@@ -156,5 +170,84 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
         <main className="flex-1 p-6 lg:p-8">{children}</main>
       </div>
     </div>
+
+    {/* ── Mobile navigation drawer ── */}
+    {drawerOpen && (
+      <div className="fixed inset-0 z-50 md:hidden">
+        <div
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          onClick={() => setDrawerOpen(false)}
+        />
+        <aside className="absolute left-0 top-0 bottom-0 w-72 bg-white dark:bg-slate-800 flex flex-col shadow-2xl">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-light dark:border-slate-700">
+            <div className="flex items-center gap-2">
+              <Image src="/supfile.png" alt="SUPFile" width={28} height={28} className="rounded-lg" />
+              <span className="font-bold text-slate-dark dark:text-slate-100">SUPFile</span>
+            </div>
+            <button
+              onClick={() => setDrawerOpen(false)}
+              aria-label="Close menu"
+              className="text-slate-mid dark:text-slate-400 hover:text-slate-dark dark:hover:text-slate-100 transition text-xl leading-none"
+            >
+              ✕
+            </button>
+          </div>
+
+          <nav className="flex-1 px-3 py-4 space-y-0.5">
+            {NAV.map(({ href, label, Icon }) => {
+              const active = pathname === href;
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={() => setDrawerOpen(false)}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                    active
+                      ? 'bg-brand/10 text-brand dark:bg-brand/20 dark:text-brand'
+                      : 'text-slate-mid dark:text-slate-400 hover:bg-brand-bg dark:hover:bg-slate-700 hover:text-slate-dark dark:hover:text-slate-100'
+                  }`}
+                >
+                  <span className={active ? 'text-brand' : 'text-slate-mid dark:text-slate-500'}>
+                    <Icon />
+                  </span>
+                  {label}
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="px-5 py-4 border-t border-slate-light dark:border-slate-700 space-y-2">
+            <div className="flex justify-between text-xs text-slate-mid dark:text-slate-400">
+              <span>Storage</span>
+              <span>{formatBytes(quotaUsed)} / {formatBytes(quotaTotal)}</span>
+            </div>
+            <div className="h-1.5 bg-brand-bg dark:bg-slate-700 rounded-full overflow-hidden">
+              <div className="h-full bg-brand rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+            </div>
+            <p className="text-xs text-slate-mid dark:text-slate-400">{pct}% used</p>
+          </div>
+
+          <div className="px-4 py-4 border-t border-slate-light dark:border-slate-700 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-brand/20 flex items-center justify-center text-brand font-semibold text-sm">
+              {user?.display_name?.[0]?.toUpperCase() ?? '?'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-slate-dark dark:text-slate-100 truncate">
+                {user?.display_name || 'User'}
+              </p>
+              <p className="text-xs text-slate-mid dark:text-slate-400 truncate">{user?.email}</p>
+            </div>
+            <button
+              onClick={onLogout}
+              aria-label="Logout"
+              className="text-slate-mid dark:text-slate-400 hover:text-red-500 transition-colors cursor-pointer"
+            >
+              <IconLogout />
+            </button>
+          </div>
+        </aside>
+      </div>
+    )}
+    </>
   );
 }
