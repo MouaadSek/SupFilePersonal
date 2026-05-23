@@ -176,7 +176,7 @@ function FileRow({ file }: { file: RecentFile }) {
         <p className="text-sm font-medium text-slate-dark dark:text-slate-100 truncate">{file.name}</p>
         <p className="text-xs text-slate-mid dark:text-slate-400">{formatBytes(file.size)} · {timeAgo(file.updated_at)}</p>
       </div>
-      <span className="text-slate-light dark:text-slate-600 group-hover:text-brand dark:group-hover:text-brand transition-colors">
+      <span className="text-slate-light dark:text-slate-600 group-hover:text-slate-mid dark:group-hover:text-slate-400 transition-colors">
         <IconChevronRight />
       </span>
     </div>

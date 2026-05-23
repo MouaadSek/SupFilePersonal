@@ -206,13 +206,13 @@ function Tab({ label, active, count, onClick }: {
 export default function SharedPage() {
   const { user, loading: authLoading, logout } = useAuth();
 
-  const [tab,        setTab]        = useState<'links' | 'withme'>('links');
-  const [links,      setLinks]      = useState<ShareLink[]>([]);
-  const [withMe,     setWithMe]     = useState<SharedFolder[]>([]);
-  const [loading,    setLoading]    = useState(true);
-  const [showCreate, setShowCreate] = useState(false);
-  const [toast,      setToast]      = useState('');
-  const [copied,     setCopied]     = useState<string | null>(null);
+  const [tab,         setTab]         = useState<'links' | 'withme'>('links');
+  const [links,       setLinks]       = useState<ShareLink[]>([]);
+  const [withMe,      setWithMe]      = useState<SharedFolder[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [showCreate,  setShowCreate]  = useState(false);
+  const [toast,       setToast]       = useState('');
+  const [copied,      setCopied]      = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -267,6 +267,8 @@ export default function SharedPage() {
       </div>
     );
   }
+
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
   return (
     <DashboardLayout user={user} onLogout={logout}>

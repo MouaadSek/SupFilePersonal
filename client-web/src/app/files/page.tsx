@@ -614,10 +614,12 @@ function FilesPageInner() {
     };
   }, []);
 
-  // ── Folder navigation from ?folder= URL param ────────────────────────────
+  // ── URL param — navigate to a shared folder ──────────────────────────────
 
   useEffect(() => {
-    const folder = searchParams.get('folder');
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const folder = params.get('folder');
     if (folder) {
       setCrumbs([{ id: null, name: 'My Files' }, { id: folder, name: '…' }]);
       setFolderId(folder);
@@ -766,10 +768,13 @@ function FilesPageInner() {
       xhrRef.current = xhr;
 
       xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+        if (e.lengthComputable) setUploadPct(Math.round((e.loaded / e.total) * 100));
       };
 
       const cleanup = () => {
+        setUploading(false);
+        setUploadPct(0);
+        setCurrentFileName(null);
         xhrRef.current = null;
         if (fileInput.current) fileInput.current.value = '';
       };
@@ -1562,6 +1567,8 @@ function FilesPageInner() {
           )}
         </div>
       )}
+
+      </div>
 
       {/* ── Modals ── */}
       {showNewFolder && (

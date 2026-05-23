@@ -16,8 +16,10 @@ Commit messages follow: `type(scope): short description` (e.g. `feat(auth): add 
  
 ## Local setup
 
-1. Copy `.env.example` to `.env` and set real values (never commit `.env`).
-2. Follow stack-specific instructions as they are added per package.
+1. Copy `.env.example` to `.env` at the repo root and set `DB_PASSWORD`, `JWT_SECRET`, etc.
+2. **API** — `cd server && npm install && npm run dev` (port 3000), or `docker compose up` from the repo root.
+3. **Web** — `cd client-web && npm install && npm run dev` (port 4000).
+4. **Mobile** — `cd mobile && cp .env.example .env`, set `EXPO_PUBLIC_API_URL`, then `npm install && npx expo start`.
 
 ## Remote
 
