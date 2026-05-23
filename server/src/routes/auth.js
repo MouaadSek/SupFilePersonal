@@ -3,7 +3,9 @@ const { body } = require('express-validator');
 const auth = require('../middleware/authMiddleware');
 const { authLimiter, loginLimiter } = require('../middleware/rateLimitMiddleware');
 const { handleValidation } = require('../middleware/validate');
-const { register, login, me, googleAuth } = require('../controllers/authController');
+const {
+  register, login, me, googleAuth, forgotPassword, resetPassword,
+} = require('../controllers/authController');
 
 router.post('/register',
   authLimiter,
@@ -31,6 +33,21 @@ router.post('/google',
   body('id_token').notEmpty().withMessage('id_token is required'),
   handleValidation,
   googleAuth
+);
+
+router.post('/forgot-password',
+  authLimiter,
+  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+  handleValidation,
+  forgotPassword
+);
+
+router.post('/reset-password',
+  authLimiter,
+  body('token').notEmpty().withMessage('token is required'),
+  body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+  handleValidation,
+  resetPassword
 );
 
 module.exports = router;

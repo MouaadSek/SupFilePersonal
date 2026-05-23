@@ -268,8 +268,6 @@ export default function SharedPage() {
     );
   }
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-
   return (
     <DashboardLayout user={user} onLogout={logout}>
 

@@ -5,12 +5,11 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/api';
+import { getApiBase } from '@/lib/apiBase';
 import {
   IconFolder, IconFile, IconImage, IconVideo, IconMusic,
   IconUpload, IconChevronRight, IconTrash, IconShare,
 } from '@/components/icons';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -422,7 +421,7 @@ function PreviewModal({
   onClose: () => void;
 }) {
   const mime = file.mime_type;
-  const downloadUrl = `${API_BASE}/files/${file.id}/download?token=${getToken()}`;
+  const downloadUrl = `${getApiBase()}/files/${file.id}/download?token=${getToken()}`;
 
   function renderBody() {
     if (loading) {
@@ -809,7 +808,7 @@ function FilesPageInner() {
         resolve(false);
       };
 
-      xhr.open('POST', `${API_BASE}/files/upload`);
+      xhr.open('POST', `${getApiBase()}/files/upload`);
       xhr.setRequestHeader('Authorization', `Bearer ${getToken()}`);
       xhr.send(form);
     });
@@ -946,7 +945,7 @@ function FilesPageInner() {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/files/${file.id}/preview`, {
+      const res = await fetch(`${getApiBase()}/files/${file.id}/preview`, {
         headers: { Authorization: `Bearer ${getToken()}` },
       });
       if (!res.ok) throw new Error('Failed to load preview');
@@ -969,7 +968,7 @@ function FilesPageInner() {
 
   async function downloadZip(folder: Folder) {
     try {
-      const res = await fetch(`${API_BASE}/folders/${folder.id}/zip`, {
+      const res = await fetch(`${getApiBase()}/folders/${folder.id}/zip`, {
         headers: { Authorization: `Bearer ${getToken()}` },
       });
       if (!res.ok) throw new Error('ZIP failed');
@@ -1223,7 +1222,7 @@ function FilesPageInner() {
                               className="text-xs px-3 py-1.5 rounded-lg border border-slate-light dark:border-slate-600 text-slate-mid dark:text-slate-400 hover:border-brand hover:text-brand transition">
                               Share
                             </button>
-                            <a href={`${API_BASE}/files/${f.id}/download?token=${getToken()}`}
+                            <a href={`${getApiBase()}/files/${f.id}/download?token=${getToken()}`}
                               className="text-xs px-3 py-1.5 rounded-lg border border-slate-light dark:border-slate-600 text-slate-mid dark:text-slate-400 hover:border-brand hover:text-brand transition">
                               Download
                             </a>
@@ -1490,7 +1489,7 @@ function FilesPageInner() {
                                 className="text-xs px-3 py-1.5 rounded-lg border border-slate-light text-slate-mid hover:border-brand hover:text-brand transition">
                                 Share
                               </button>
-                              <a href={`${API_BASE}/files/${f.id}/download?token=${getToken()}`}
+                              <a href={`${getApiBase()}/files/${f.id}/download?token=${getToken()}`}
                                 className="text-xs px-3 py-1.5 rounded-lg border border-slate-light text-slate-mid hover:border-brand hover:text-brand transition">
                                 Download
                               </a>
@@ -1521,7 +1520,7 @@ function FilesPageInner() {
                                     className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
                                     Share
                                   </button>
-                                  <a href={`${API_BASE}/files/${f.id}/download?token=${getToken()}`}
+                                  <a href={`${getApiBase()}/files/${f.id}/download?token=${getToken()}`}
                                     onClick={() => setActiveMenu(null)}
                                     className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
                                     Download

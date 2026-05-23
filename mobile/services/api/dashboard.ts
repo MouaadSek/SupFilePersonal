@@ -1,4 +1,4 @@
-import type { ApiFile, ApiStorageBreakdown } from './types';
+import type { ApiFile, ApiFolder, ApiStorageBreakdown } from './types';
 import { apiRequest, ApiError } from './client';
 
 export type DashboardHomeResponse = {
@@ -36,15 +36,17 @@ export async function apiStorageBreakdown(): Promise<ApiStorageBreakdown[]> {
   return apiRequest<ApiStorageBreakdown[]>('/dashboard/breakdown');
 }
 
+type SearchResponse = { files: ApiFile[]; folders: ApiFolder[] };
+
 export async function apiSearch(params: {
   q?: string;
   type?: string;
   date?: string;
-}): Promise<ApiFile[]> {
+}): Promise<SearchResponse> {
   const qs = new URLSearchParams();
   if (params.q) qs.set('q', params.q);
   if (params.type) qs.set('type', params.type);
   if (params.date) qs.set('date', params.date);
   const query = qs.toString();
-  return apiRequest<ApiFile[]>(`/search${query ? `?${query}` : ''}`);
+  return apiRequest<SearchResponse>(`/search${query ? `?${query}` : ''}`);
 }

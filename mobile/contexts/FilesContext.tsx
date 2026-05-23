@@ -237,6 +237,12 @@ export function FilesProvider({ children }: { children: ReactNode }) {
     if (!f || f.deletedAt || f.type !== 'folder') return;
     setCurrentFolder(folderId);
     setSelectedFiles([]);
+    const hasChildren = files.some((x) => isActive(x) && x.parentId === folderId);
+    if (!hasChildren) {
+      void fetchListing(folderId).catch(() => {
+        /* refresh on next focus */
+      });
+    }
   };
 
   const getFilesInFolder = (folderId: string | null) => {
@@ -550,13 +556,20 @@ export function FilesProvider({ children }: { children: ReactNode }) {
   const fetchSearchResults = useCallback(async (query: string): Promise<FileItem[]> => {
     const raw = query.trim();
     if (raw.length < 2) return [];
-    const rows = await apiSearch({ q: raw });
-    return rows.map((f) => {
+    const { files: fileRows, folders: folderRows } = await apiSearch({ q: raw });
+    const folderItems = folderRows.map((folder) => {
+      const parentPath = folder.parent_id
+        ? filesRef.current.find((x) => x.id === folder.parent_id)?.path ?? ''
+        : '';
+      return mapApiFolder(folder, buildPath(parentPath || null, folder.name));
+    });
+    const fileItems = fileRows.map((f) => {
       const parentPath = f.folder_id
         ? filesRef.current.find((x) => x.id === f.folder_id)?.path ?? ''
         : '';
       return mapApiFile(f, buildPath(parentPath || null, f.name));
     });
+    return [...folderItems, ...fileItems];
   }, []);
 
   const getTrashRoots = useCallback(() => trashRootItems(files), [files]);

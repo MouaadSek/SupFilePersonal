@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { query } = require('../db');
@@ -101,4 +102,65 @@ async function googleAuth(req, res, next) {
   }
 }
 
-module.exports = { register, login, me, googleAuth };
+// POST /auth/forgot-password
+async function forgotPassword(req, res, next) {
+  try {
+    const email = String(req.body.email || '').toLowerCase().trim();
+    const result = await query(
+      'SELECT id, email, password_hash FROM users WHERE email = $1',
+      [email],
+    );
+    const generic = { message: 'If that email exists, reset instructions were sent.' };
+    const user = result.rows[0];
+    if (!user || !user.password_hash) {
+      return res.json(generic);
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+    const expires = new Date(Date.now() + 60 * 60 * 1000);
+
+    await query(
+      `UPDATE users SET password_reset_token = $1, password_reset_expires = $2 WHERE id = $3`,
+      [resetHash, expires, user.id],
+    );
+
+    if (process.env.NODE_ENV !== 'production') {
+      return res.json({ ...generic, dev_reset_token: resetToken });
+    }
+    // Production: integrate email provider here; never expose token in response.
+    return res.json(generic);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// POST /auth/reset-password
+async function resetPassword(req, res, next) {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password || password.length < 8) {
+      return res.status(400).json({ error: 'Valid token and password (min 8 chars) required' });
+    }
+    const resetHash = crypto.createHash('sha256').update(String(token)).digest('hex');
+    const result = await query(
+      `SELECT id FROM users
+       WHERE password_reset_token = $1 AND password_reset_expires > NOW()`,
+      [resetHash],
+    );
+    const user = result.rows[0];
+    if (!user) return res.status(400).json({ error: 'Invalid or expired reset token' });
+
+    const password_hash = await bcrypt.hash(password, BCRYPT_COST);
+    await query(
+      `UPDATE users SET password_hash = $1, password_reset_token = NULL, password_reset_expires = NULL
+       WHERE id = $2`,
+      [password_hash, user.id],
+    );
+    return res.json({ message: 'Password updated successfully' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { register, login, me, googleAuth, forgotPassword, resetPassword };

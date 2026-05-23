@@ -1,13 +1,13 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { TouchableOpacity, Text, StyleSheet, View, Alert } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { AuthBranded } from '@/constants/authBranded';
 import { BorderRadius, FontSize, Spacing } from '@/constants/theme';
+import { useGoogleSignIn, isGoogleSignInConfigured } from '@/utils/googleSignIn';
 
 type Props = {
   disabled?: boolean;
-  /** Override default stub behavior (shows “not enabled” alert). */
-  onPress?: () => void;
+  onSuccess?: (idToken: string) => void | Promise<void>;
 };
 
 function GoogleIcon() {
@@ -33,24 +33,37 @@ function GoogleIcon() {
   );
 }
 
-/** Visual-only Google button (OAuth not wired — for UI / layout testing). */
-export function AuthGoogleButton({ disabled = false, onPress }: Props) {
-  const handlePress = () => {
-    if (onPress) {
-      onPress();
+export function AuthGoogleButton({ disabled = false, onSuccess }: Props) {
+  const { request, response, promptAsync, configured } = useGoogleSignIn();
+
+  useEffect(() => {
+    if (response?.type !== 'success') return;
+    const idToken = response.authentication?.idToken;
+    if (idToken && onSuccess) {
+      void onSuccess(idToken);
+    }
+  }, [response, onSuccess]);
+
+  const handlePress = async () => {
+    if (!configured) {
+      Alert.alert(
+        'Google',
+        'Connexion Google non configurée. Définissez EXPO_PUBLIC_GOOGLE_* dans .env.',
+      );
       return;
     }
-    Alert.alert(
-      'Google',
-      'Connexion Google non activée. Utilisez e-mail et mot de passe pour tester l’application.',
-    );
+    try {
+      await promptAsync();
+    } catch {
+      Alert.alert('Google', 'Connexion annulée ou impossible.');
+    }
   };
 
   return (
     <TouchableOpacity
       style={[styles.btn, disabled && styles.btnDisabled]}
       onPress={handlePress}
-      disabled={disabled}
+      disabled={disabled || !request}
       activeOpacity={0.85}
     >
       <View style={styles.content}>
@@ -60,6 +73,8 @@ export function AuthGoogleButton({ disabled = false, onPress }: Props) {
     </TouchableOpacity>
   );
 }
+
+export { isGoogleSignInConfigured };
 
 const styles = StyleSheet.create({
   btn: {

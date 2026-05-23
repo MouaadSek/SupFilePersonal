@@ -8,6 +8,7 @@ const c = require('../controllers/fileController');
 router.post('/upload', auth, upload.single('file'), c.upload);
 router.get('/trash', auth, c.listTrash);            // must be before /:id
 router.delete('/trash/empty', auth, c.emptyTrash);  // must be before /:id
+router.get('/:id', auth, c.getOne);                 // metadata — before /:id/download
 router.get('/:id/download', auth, c.download);
 router.get('/:id/preview', auth, c.preview);
 router.patch('/:id',

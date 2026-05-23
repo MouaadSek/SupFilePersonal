@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { apiRegister } from '@/lib/api';
 import { saveToken } from '@/lib/auth';
 import AuthLayout from '@/components/AuthLayout';
+import { getPublicApiBase } from '@/lib/apiBase';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -154,7 +155,7 @@ export default function RegisterPage() {
         </div>
 
         <a
-          href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/auth/oauth/github`}
+          href={`${getPublicApiBase()}/auth/oauth/github`}
           className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-slate-light dark:border-slate-600
                      text-slate-dark dark:text-slate-100 text-sm font-medium
                      hover:bg-brand-bg dark:hover:bg-slate-700 transition-colors duration-200"
