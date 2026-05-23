@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FontSize, Spacing, BorderRadius } from '@/constants/theme';
-import { formatFileSize } from '@/data/mockData';
+import { formatFileSize } from '@/utils/format';
 import type { StorageBreakdownSegment } from '@/utils/dashboardStorage';
 
 type Props = {

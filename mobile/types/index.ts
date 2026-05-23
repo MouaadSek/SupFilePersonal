@@ -67,13 +67,3 @@ export interface Activity {
   fileName: string;
   timestamp: Date;
 }
-
-export interface StorageStats {
-  total: number;
-  used: number;
-  breakdown: {
-    type: string;
-    size: number;
-    color: string;
-  }[];
-}

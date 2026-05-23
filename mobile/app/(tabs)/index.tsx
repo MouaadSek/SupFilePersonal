@@ -32,7 +32,8 @@ import { useFiles } from '@/contexts/FilesContext';
 import { Logo, UploadProgress, BottomSheet } from '@/components/ui';
 import { CreateFolderModal } from '@/components/files';
 import { StorageBreakdownChart } from '@/components/dashboard';
-import { formatFileSize, formatDate, getFileColor } from '@/data/mockData';
+import { formatFileSize, formatDate } from '@/utils/format';
+import { getFileColor } from '@/utils/fileColors';
 import { apiDashboardHome } from '@/services/api/dashboard';
 import { mapApiBreakdownSegments } from '@/services/api/mappers';
 import type { Activity } from '@/types';
@@ -409,7 +410,7 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* Recent Activity */}
+        {recentActivities.length > 0 ? (
         <View style={[styles.section, { marginBottom: Spacing.xxxl }]}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
@@ -441,6 +442,7 @@ export default function HomeScreen() {
             </View>
           ))}
         </View>
+        ) : null}
       </ScrollView>
       <UploadProgress
         uploads={uploadJobs}

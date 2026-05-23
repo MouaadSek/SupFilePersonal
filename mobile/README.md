@@ -59,7 +59,7 @@ Register or log in in the app. The API returns a JWT; the app stores it and send
 | Login / Register | `POST /auth/login`, `POST /auth/register`, `GET /auth/me` |
 | Home | `GET /dashboard/quota`, `/recent`, `/breakdown` |
 | Files | `GET/POST/PATCH/DELETE /folders`, `POST /files/upload`, `GET /search` |
-| Trash | `GET /files/trash`, restore, permanent delete, empty |
+| Trash | `GET /trash`, restore, permanent delete, empty |
 | Shares | `GET/POST/DELETE /shares`, `GET /shares/with-me`, folder members |
 | Profile | `PUT /users/me`, password, avatar |
 | Preview | `GET /files/:id`, preview, download |

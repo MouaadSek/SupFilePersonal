@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Folder, MoreVertical, Check } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FileItem as FileItemType } from '@/types';
-import { formatFileSize, formatDate } from '@/data/mockData';
+import { formatFileSize, formatDate } from '@/utils/format';
 import { isImageFile } from '@/utils/mimeFromFilename';
 import { FileThumbnail } from './FileThumbnail';
 import { FileExtensionBadge } from './FileExtensionBadge';

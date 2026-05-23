@@ -31,7 +31,7 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useFiles } from '@/contexts/FilesContext';
-import { formatDate } from '@/data/mockData';
+import { formatDate } from '@/utils/format';
 import { FontSize, Spacing, BorderRadius } from '@/constants/theme';
 import { ShareCollaborationModal } from '@/components/sharing';
 import { isActive } from '@/utils/fileTree';
