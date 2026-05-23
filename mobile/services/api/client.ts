@@ -1,4 +1,4 @@
-import { API_BASE_URL, AUTH_TOKEN_KEY } from '@/constants/api';
+import { API_BASE_URL, AUTH_TOKEN_KEY, FRONT_BASE_URL } from '@/constants/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export class ApiError extends Error {
@@ -40,6 +40,10 @@ export function getAuthToken(): string | null {
 export function apiUrl(path: string): string {
   const p = path.startsWith('/') ? path : `/${path}`;
   return `${API_BASE_URL}${p}`;
+}
+
+export function publicShareUrl(token: string): string {
+  return `${FRONT_BASE_URL}/share/${token}`;
 }
 
 export function fileDownloadUrl(fileId: string): string {

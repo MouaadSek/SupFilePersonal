@@ -13,6 +13,7 @@ import {
   fileAuthenticatedPreviewUrl,
   fileDownloadUrl,
   filePreviewUrl,
+  publicShareUrl,
 } from './client';
 import type { StorageBreakdownSegment } from '@/utils/dashboardStorage';
 import { parseApiDate } from '@/utils/parseApiDate';
@@ -115,7 +116,7 @@ export function mapApiShare(s: ApiShare): ShareLink {
     targetId,
     targetType,
     token: s.token,
-    url: apiUrl(`/shares/${s.token}`),
+    url: publicShareUrl(s.token),
     expiresAt: s.expires_at ? new Date(s.expires_at) : undefined,
     createdAt: new Date(s.created_at),
     downloads: 0,
