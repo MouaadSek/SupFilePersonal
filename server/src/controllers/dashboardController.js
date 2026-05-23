@@ -104,4 +104,48 @@ async function breakdown(req, res, next) {
   }
 }
 
-module.exports = { quota, recent, search, breakdown };
+// GET /dashboard/home — combined payload for mobile/web home screens
+async function home(req, res, next) {
+  try {
+    const userId = req.user.id;
+    const [quotaResult, recentResult, breakdownResult] = await Promise.all([
+      query('SELECT quota_used, quota_total FROM users WHERE id = $1', [userId]),
+      query(
+        `SELECT id, name, mime_type, size, folder_id, updated_at
+         FROM files WHERE owner_id = $1 AND trashed = FALSE
+         ORDER BY updated_at DESC LIMIT 12`,
+        [userId],
+      ),
+      query(
+        `SELECT
+           CASE
+             WHEN mime_type LIKE 'image/%'                               THEN 'Images'
+             WHEN mime_type LIKE 'video/%'                               THEN 'Videos'
+             WHEN mime_type LIKE 'audio/%'                               THEN 'Audio'
+             WHEN mime_type LIKE 'application/pdf'
+               OR mime_type LIKE 'text/%'                                THEN 'Documents'
+             ELSE 'Other'
+           END AS category,
+           COUNT(*)::int  AS count,
+           SUM(size)::bigint AS total_size
+         FROM files
+         WHERE owner_id = $1 AND trashed = FALSE
+         GROUP BY category
+         ORDER BY total_size DESC`,
+        [userId],
+      ),
+    ]);
+    const recent = recentResult.rows;
+    const recent_images = recent.filter((f) => f.mime_type?.startsWith('image/'));
+    return res.json({
+      quota: quotaResult.rows[0],
+      recent,
+      recent_images,
+      breakdown: breakdownResult.rows,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { quota, recent, search, breakdown, home };

@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS users (
   quota_total     BIGINT NOT NULL DEFAULT 32212254720,  -- 30 GB
   oauth_provider  TEXT,                        -- 'google' | 'github' | NULL
   oauth_id        TEXT,                        -- provider's user id
+  password_reset_token   TEXT,
+  password_reset_expires TIMESTAMPTZ,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (oauth_provider, oauth_id)
@@ -56,6 +58,9 @@ CREATE TABLE IF NOT EXISTS files (
 
 -- Encryption flag — added after initial release; idempotent on re-run
 ALTER TABLE files ADD COLUMN IF NOT EXISTS encrypted BOOLEAN NOT NULL DEFAULT FALSE;
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires TIMESTAMPTZ;
 
 -- ──────────────────────────────────────────────────────────────
 -- 4. SHARES (public links)

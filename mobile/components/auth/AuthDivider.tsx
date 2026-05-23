@@ -7,7 +7,7 @@ export function AuthDivider() {
   return (
     <View style={styles.row}>
       <View style={styles.line} />
-      <Text style={styles.label}>ou</Text>
+      <Text style={styles.text}>ou</Text>
       <View style={styles.line} />
     </View>
   );
@@ -17,14 +17,15 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: Spacing.lg,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.sm,
   },
   line: {
     flex: 1,
     height: StyleSheet.hairlineWidth,
-    backgroundColor: AuthBranded.fieldBorder,
+    backgroundColor: AuthBranded.googleBorder,
   },
-  label: {
+  text: {
     marginHorizontal: Spacing.md,
     fontSize: FontSize.sm,
     color: AuthBranded.textMuted,

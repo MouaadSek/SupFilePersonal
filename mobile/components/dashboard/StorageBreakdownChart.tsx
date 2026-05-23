@@ -28,10 +28,12 @@ export function StorageBreakdownChart({ segments, totalForPercent, title }: Prop
       {title ? (
         <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
       ) : null}
+      
+      {/* Chart Track Visual */}
       <View style={[styles.stackTrack, { backgroundColor: colors.surfaceSecondary }]}>
-        {segments.map((seg) => (
+        {segments.map((seg, index) => (
           <View
-            key={seg.type}
+            key={`${seg.type}-${index}`}
             style={{
               flex: Math.max(seg.size, 1),
               backgroundColor: seg.color,
@@ -39,11 +41,13 @@ export function StorageBreakdownChart({ segments, totalForPercent, title }: Prop
           />
         ))}
       </View>
+
+      {/* Legend Breakdown List */}
       <View style={styles.legend}>
-        {segments.map((seg) => {
+        {segments.map((seg, index) => {
           const pct = denom > 0 ? Math.round((seg.size / denom) * 1000) / 10 : 0;
           return (
-            <View key={seg.type} style={styles.legendRow}>
+            <View key={`${seg.type}-${index}`} style={styles.legendRow}>
               <View style={[styles.dot, { backgroundColor: seg.color }]} />
               <Text style={[styles.legendName, { color: colors.text }]} numberOfLines={1}>
                 {seg.type}

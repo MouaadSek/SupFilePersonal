@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -16,6 +17,10 @@ import * as ImagePicker from 'expo-image-picker';
 import { Colors, Spacing, Typography, BorderRadius } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { apiStorageBreakdown } from '@/services/api/dashboard';
+import { mapApiBreakdownSegments } from '@/services/api/mappers';
+import { formatFileSize, formatStoragePair } from '@/utils/format';
+import type { StorageBreakdownSegment } from '@/utils/dashboardStorage';
 
 type ThemeColors = (typeof Colors)['light'];
 
@@ -305,9 +310,19 @@ function SettingSection({
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, logout, updateProfile } = useAuth();
+  const { user, logout, updateProfile, refreshSession } = useAuth();
   const { theme, colors, setTheme } = useTheme();
   const styles = useMemo(() => createProfileStyles(colors), [colors]);
+  const [breakdown, setBreakdown] = useState<StorageBreakdownSegment[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshSession();
+      void apiStorageBreakdown()
+        .then((rows) => setBreakdown(mapApiBreakdownSegments(rows)))
+        .catch(() => setBreakdown([]));
+    }, [refreshSession]),
+  );
   const openAvatarLibrary = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
@@ -381,8 +396,6 @@ export default function ProfileScreen() {
 
   const storageUsedBytes = user?.storageUsed ?? 0;
   const storageTotalBytes = user?.storageLimit || 1;
-  const storageUsed = storageUsedBytes / 1024 ** 3;
-  const storageTotal = storageTotalBytes / 1024 ** 3;
   const storagePercentage =
     storageTotalBytes > 0 ? Math.min(100, (storageUsedBytes / storageTotalBytes) * 100) : 0;
 
@@ -429,26 +442,24 @@ export default function ProfileScreen() {
               <Text style={styles.storageTitle}>Stockage</Text>
             </View>
             <Text style={styles.storageUsage}>
-              {storageUsed} Go / {storageTotal} Go
+              {formatStoragePair(storageUsedBytes, storageTotalBytes)}
             </Text>
           </View>
           <View style={styles.storageBarBackground}>
             <View style={[styles.storageBarFill, { width: `${storagePercentage}%` }]} />
           </View>
-          <View style={styles.storageDetails}>
-            <View style={styles.storageDetailItem}>
-              <View style={[styles.storageDetailDot, { backgroundColor: colors.primary }]} />
-              <Text style={styles.storageDetailText}>Photos: 1.2 Go</Text>
+          {breakdown.length > 0 ? (
+            <View style={styles.storageDetails}>
+              {breakdown.map((seg) => (
+                <View key={seg.type} style={styles.storageDetailItem}>
+                  <View style={[styles.storageDetailDot, { backgroundColor: seg.color }]} />
+                  <Text style={styles.storageDetailText}>
+                    {seg.type}: {formatFileSize(seg.size)}
+                  </Text>
+                </View>
+              ))}
             </View>
-            <View style={styles.storageDetailItem}>
-              <View style={[styles.storageDetailDot, { backgroundColor: colors.success }]} />
-              <Text style={styles.storageDetailText}>Documents: 800 Mo</Text>
-            </View>
-            <View style={styles.storageDetailItem}>
-              <View style={[styles.storageDetailDot, { backgroundColor: colors.warning }]} />
-              <Text style={styles.storageDetailText}>Vidéos: 500 Mo</Text>
-            </View>
-          </View>
+          ) : null}
         </View>
 
         <SettingSection title="GÉNÉRAL" styles={styles}>

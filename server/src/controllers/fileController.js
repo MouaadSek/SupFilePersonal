@@ -36,6 +36,21 @@ async function upload(req, res, next) {
   }
 }
 
+// GET /files/:id — metadata for clients (preview, recent shortcuts)
+async function getOne(req, res, next) {
+  try {
+    const result = await query(
+      `SELECT id, name, mime_type, size, folder_id, created_at, updated_at, encrypted
+       FROM files WHERE id = $1 AND owner_id = $2 AND trashed = FALSE`,
+      [req.params.id, req.user.id]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'File not found' });
+    return res.json(result.rows[0]);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // GET /files/:id/download
 async function download(req, res, next) {
   try {
@@ -203,4 +218,6 @@ async function emptyTrash(req, res, next) {
   }
 }
 
-module.exports = { upload, download, preview, update, trash, restore, listTrash, permanentDelete, emptyTrash };
+module.exports = {
+  upload, getOne, download, preview, update, trash, restore, listTrash, permanentDelete, emptyTrash,
+};

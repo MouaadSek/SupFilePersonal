@@ -55,6 +55,7 @@ import {
 import { fetchPdfAsInlineDataUri } from '@/utils/pdfInlineDataUri';
 import { buildPdfJsViewerHtml, loadPdfBase64 } from '@/utils/pdfPreview';
 import { fileAuthenticatedPreviewUrl } from '@/services/api/client';
+import { useResolvedPreviewUri } from '@/hooks/useResolvedPreviewUri';
 import { loadSpreadsheetRows, spreadsheetRowsToHtml } from '@/utils/spreadsheetFromFile';
 import { shareSingleFileToDevice } from '@/utils/folderArchiveDownload';
 
@@ -77,8 +78,9 @@ function parentDirectoryOfFileUri(fileUri: string): string | undefined {
   return clean.slice(0, idx + 1);
 }
 
-function PdfPreview({ uri }: { uri: string }) {
+function PdfPreview({ file }: { file: FileItem }) {
   const { colors } = useTheme();
+  const { uri: resolvedUri, loading: resolving } = useResolvedPreviewUri(file, true);
   const [webSource, setWebSource] = useState<
     { uri: string } | { html: string; baseUrl?: string } | null
   >(null);
@@ -86,11 +88,13 @@ function PdfPreview({ uri }: { uri: string }) {
   const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
+    if (!resolvedUri || resolving) return;
     let cancelled = false;
     setLoadError(false);
     setWebSource(null);
 
     (async () => {
+      const uri = resolvedUri;
       try {
         if (Platform.OS === 'web') {
           if (!cancelled) setWebSource({ uri });
@@ -151,7 +155,15 @@ function PdfPreview({ uri }: { uri: string }) {
     return () => {
       cancelled = true;
     };
-  }, [uri]);
+  }, [resolvedUri, resolving]);
+
+  if (resolving || !resolvedUri) {
+    return (
+      <View style={[styles.embedWebView, { backgroundColor: colors.background }]}>
+        <ActivityIndicator style={styles.centeredLoader} color={colors.primary} size="large" />
+      </View>
+    );
+  }
 
   if (loadError) {
     return (
@@ -282,9 +294,11 @@ function SpreadsheetInlinePreview({ file }: { file: FileItem }) {
   );
 }
 
-function VideoNativePreview({ uri }: { uri: string }) {
+function VideoNativePreview({ file }: { file: FileItem }) {
+  const { colors } = useTheme();
+  const { uri, loading } = useResolvedPreviewUri(file, true);
   const errorAlerted = useRef(false);
-  const player = useVideoPlayer(uri, (p) => {
+  const player = useVideoPlayer(uri ?? '', (p) => {
     p.loop = false;
   });
 
@@ -299,15 +313,16 @@ function VideoNativePreview({ uri }: { uri: string }) {
     }
   });
 
-  const isRemote = uri.startsWith('http://') || uri.startsWith('https://');
+  if (loading || !uri) {
+    return (
+      <View style={[styles.mediaBox, { backgroundColor: '#000000' }]}>
+        <ActivityIndicator color={colors.primary} size="large" />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.mediaBox, { backgroundColor: '#000000' }]}>
-      {isRemote ? (
-        <View style={styles.videoHintBar}>
-          <Text style={styles.videoHintText}>Streaming — lecture directe dans l’app</Text>
-        </View>
-      ) : null}
       <VideoView
         style={styles.video}
         player={player}
@@ -327,8 +342,9 @@ function formatPlaybackTime(ms: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-function AudioNativePreview({ uri }: { uri: string }) {
+function AudioNativePreview({ file }: { file: FileItem }) {
   const { colors } = useTheme();
+  const { uri: playbackUri, loading: resolving } = useResolvedPreviewUri(file, true);
   const soundRef = useRef<Audio.Sound | null>(null);
   const [loading, setLoading] = useState(true);
   const [playing, setPlaying] = useState(false);
@@ -336,14 +352,16 @@ function AudioNativePreview({ uri }: { uri: string }) {
   const [durationMs, setDurationMs] = useState(0);
 
   useEffect(() => {
+    if (!playbackUri || resolving) return;
     let cancelled = false;
+    setLoading(true);
     (async () => {
       try {
         await Audio.setAudioModeAsync({
           playsInSilentModeIOS: true,
           staysActiveInBackground: false,
         });
-        const { sound } = await Audio.Sound.createAsync({ uri }, { shouldPlay: false });
+        const { sound } = await Audio.Sound.createAsync({ uri: playbackUri }, { shouldPlay: false });
         if (cancelled) {
           await sound.unloadAsync();
           return;
@@ -367,7 +385,7 @@ function AudioNativePreview({ uri }: { uri: string }) {
       soundRef.current?.unloadAsync().catch(() => {});
       soundRef.current = null;
     };
-  }, [uri]);
+  }, [playbackUri, resolving]);
 
   const toggle = async () => {
     const s = soundRef.current;
@@ -381,18 +399,19 @@ function AudioNativePreview({ uri }: { uri: string }) {
 
   const progress =
     durationMs > 0 ? Math.min(100, (positionMs / durationMs) * 100) : 0;
-  const isRemote = uri.startsWith('http://') || uri.startsWith('https://');
+  if (resolving || !playbackUri) {
+    return (
+      <View style={[styles.audioBox, { backgroundColor: colors.surface }]}>
+        <ActivityIndicator color={colors.primary} size="large" />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.audioBox, { backgroundColor: colors.surface }]}>
       <View style={[styles.audioArt, { backgroundColor: colors.primaryLight }]}>
         <Volume2 size={56} color={colors.primary} />
       </View>
-      {isRemote ? (
-        <Text style={[styles.streamingHint, { color: colors.textSecondary }]}>
-          Lecture en streaming — aucun téléchargement requis
-        </Text>
-      ) : null}
       {loading ? (
         <ActivityIndicator color={colors.primary} style={{ marginTop: Spacing.lg }} />
       ) : (
@@ -551,7 +570,10 @@ function TextOrMarkdownPreview({ file }: { file: FileItem }) {
           if (alive) setText(t);
           return;
         }
-        const remote = file.downloadUrl || file.previewUrl;
+        const remote =
+          (file.id ? fileAuthenticatedPreviewUrl(file.id) : undefined) ||
+          file.downloadUrl ||
+          file.previewUrl;
         if (remote) {
           const { fetchWithAuth } = await import('@/utils/authenticatedFetch');
           const res = await fetchWithAuth(remote);
@@ -865,8 +887,6 @@ export default function PreviewScreen() {
 
   const uiFile = displayFile!;
 
-  const uri = streamUri(file);
-
   const renderPreview = () => {
     if (kind === 'image') {
       return (
@@ -880,36 +900,15 @@ export default function PreviewScreen() {
     }
 
     if (kind === 'video') {
-      if (!uri) {
-        return (
-          <Text style={[styles.fallbackText, { color: colors.textSecondary }]}>
-            Vidéo non disponible hors ligne.
-          </Text>
-        );
-      }
-      return <VideoNativePreview uri={uri} />;
+      return <VideoNativePreview file={file} />;
     }
 
     if (kind === 'audio') {
-      if (!uri) {
-        return (
-          <Text style={[styles.fallbackText, { color: colors.textSecondary }]}>
-            Audio non disponible hors ligne.
-          </Text>
-        );
-      }
-      return <AudioNativePreview uri={uri} />;
+      return <AudioNativePreview file={file} />;
     }
 
     if (kind === 'pdf') {
-      if (!uri) {
-        return (
-          <Text style={[styles.fallbackText, { color: colors.textSecondary }]}>
-            PDF non disponible.
-          </Text>
-        );
-      }
-      return <PdfPreview uri={uri} />;
+      return <PdfPreview file={file} />;
     }
 
     if (kind === 'sheet' && (file.localUri || file.downloadUrl || file.previewUrl)) {

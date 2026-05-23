@@ -1,6 +1,7 @@
 export { FileItemComponent } from './FileItem';
 export { FileExtensionBadge } from './FileExtensionBadge';
 export { FileThumbnail } from './FileThumbnail';
+export { FileListPreview } from './FileListPreview';
 export { Breadcrumb } from './Breadcrumb';
 export { FileActionsMenu } from './FileActionsMenu';
 export { CreateFolderModal } from './CreateFolderModal';

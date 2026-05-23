@@ -1,7 +1,11 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
-import { fileExtensionLabel, effectiveMimeTypeForFile } from '@/utils/mimeFromFilename';
+import {
+  fileExtensionLabel,
+  effectiveMimeTypeForFile,
+  isPdfFile,
+} from '@/utils/mimeFromFilename';
 import { BorderRadius } from '@/constants/theme';
 import { getFileColor } from '@/utils/format';
 import type { FileItem } from '@/types';
@@ -26,7 +30,7 @@ export function FileExtensionBadge({ file, size = 'md', style }: FileExtensionBa
   const dims = SIZES[size];
   const label = useMemo(() => fileExtensionLabel(file.name), [file.name]);
   const mime = effectiveMimeTypeForFile(file);
-  const accent = getFileColor(mime);
+  const accent = isPdfFile(file) ? '#dc2626' : getFileColor(mime);
 
   return (
     <View

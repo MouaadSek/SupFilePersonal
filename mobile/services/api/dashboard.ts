@@ -1,5 +1,5 @@
-import type { ApiFile, ApiStorageBreakdown } from './types';
-import { apiRequest } from './client';
+import type { ApiFile, ApiFolder, ApiStorageBreakdown } from './types';
+import { apiRequest, ApiError } from './client';
 
 export type DashboardHomeResponse = {
   quota: { quota_used: number; quota_total: number };
@@ -8,9 +8,20 @@ export type DashboardHomeResponse = {
   breakdown: ApiStorageBreakdown[];
 };
 
-/** Single round-trip for the home screen (`GET /dashboard/home`). */
+/** Home screen payload — uses `/dashboard/home` or falls back to separate endpoints. */
 export async function apiDashboardHome(): Promise<DashboardHomeResponse> {
-  return apiRequest<DashboardHomeResponse>('/dashboard/home');
+  try {
+    return await apiRequest<DashboardHomeResponse>('/dashboard/home');
+  } catch (err) {
+    if (err instanceof ApiError && err.status !== 404) throw err;
+    const [quota, recent, breakdown] = await Promise.all([
+      apiQuota(),
+      apiRecentFiles(),
+      apiStorageBreakdown(),
+    ]);
+    const recent_images = recent.filter((f) => f.mime_type?.startsWith('image/'));
+    return { quota, recent, recent_images, breakdown };
+  }
 }
 
 export async function apiQuota(): Promise<{ quota_used: number; quota_total: number }> {
@@ -25,15 +36,17 @@ export async function apiStorageBreakdown(): Promise<ApiStorageBreakdown[]> {
   return apiRequest<ApiStorageBreakdown[]>('/dashboard/breakdown');
 }
 
+type SearchResponse = { files: ApiFile[]; folders: ApiFolder[] };
+
 export async function apiSearch(params: {
   q?: string;
   type?: string;
   date?: string;
-}): Promise<ApiFile[]> {
+}): Promise<SearchResponse> {
   const qs = new URLSearchParams();
   if (params.q) qs.set('q', params.q);
   if (params.type) qs.set('type', params.type);
   if (params.date) qs.set('date', params.date);
   const query = qs.toString();
-  return apiRequest<ApiFile[]>(`/search${query ? `?${query}` : ''}`);
+  return apiRequest<SearchResponse>(`/search${query ? `?${query}` : ''}`);
 }

@@ -15,13 +15,15 @@ import {
   AuthBrandedLayout,
   AuthTextField,
   AuthPrimaryButton,
+  AuthGoogleButton,
+  AuthDivider,
 } from '@/components/auth';
 import { AuthBranded } from '@/constants/authBranded';
 import { FontSize, Spacing } from '@/constants/theme';
 import { ApiError } from '@/services/api/client';
 
 export default function LoginScreen() {
-  const { login, isLoading, isAuthenticated } = useAuth();
+  const { login, loginWithGoogle, isLoading, isAuthenticated } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -138,6 +140,23 @@ export default function LoginScreen() {
           title="Se connecter"
           onPress={() => void handleLogin()}
           loading={isLoading}
+        />
+
+        <AuthDivider />
+
+        <AuthGoogleButton
+          disabled={isLoading}
+          onSuccess={async (idToken) => {
+            setErrors({});
+            try {
+              await loginWithGoogle(idToken, rememberMe);
+              router.replace('/(tabs)');
+            } catch (err) {
+              const message =
+                err instanceof ApiError ? err.message : 'Connexion Google impossible.';
+              setErrors({ form: message });
+            }
+          }}
         />
       </AuthBrandedLayout>
     </SafeAreaView>

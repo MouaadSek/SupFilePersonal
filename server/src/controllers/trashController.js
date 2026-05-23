@@ -1,8 +1,6 @@
-const fs = require('fs');
-const path = require('path');
 const { query } = require('../db');
-
-const STORAGE_PATH = process.env.STORAGE_PATH || './storage';
+const quotaService = require('../services/quotaService');
+const storageService = require('../services/storageService');
 
 // GET /trash
 async function list(req, res, next) {
@@ -25,15 +23,12 @@ async function list(req, res, next) {
 async function empty(req, res, next) {
   try {
     const files = await query(
-      'SELECT id, storage_path FROM files WHERE owner_id = $1 AND trashed = TRUE',
+      'SELECT id, storage_path, size FROM files WHERE owner_id = $1 AND trashed = TRUE',
       [req.user.id],
     );
     for (const file of files.rows) {
-      try {
-        if (file.storage_path && fs.existsSync(file.storage_path)) {
-          fs.unlinkSync(file.storage_path);
-        }
-      } catch (_) { /* ignore missing files on disk */ }
+      storageService.deleteFile(file.storage_path);
+      await quotaService.decrement(req.user.id, file.size || 0);
     }
     await query('DELETE FROM files WHERE owner_id = $1 AND trashed = TRUE', [req.user.id]);
     await query('DELETE FROM folders WHERE owner_id = $1 AND trashed = TRUE', [req.user.id]);
@@ -53,9 +48,8 @@ async function purgeFile(req, res, next) {
     const file = result.rows[0];
     if (!file) return res.status(404).json({ error: 'File not found in trash' });
 
-    if (file.storage_path && fs.existsSync(file.storage_path)) {
-      fs.unlinkSync(file.storage_path);
-    }
+    storageService.deleteFile(file.storage_path);
+    await quotaService.decrement(req.user.id, file.size || 0);
     await query('DELETE FROM files WHERE id = $1', [file.id]);
     return res.json({ message: 'File permanently deleted' });
   } catch (err) {
@@ -78,17 +72,14 @@ async function purgeFolder(req, res, next) {
          UNION ALL
          SELECT f.id FROM folders f JOIN subtree s ON f.parent_id = s.id
        )
-       SELECT id, storage_path FROM files
+       SELECT id, storage_path, size FROM files
        WHERE folder_id IN (SELECT id FROM subtree) AND owner_id = $2`,
       [req.params.id, req.user.id],
     );
 
     for (const file of files.rows) {
-      try {
-        if (file.storage_path && fs.existsSync(file.storage_path)) {
-          fs.unlinkSync(file.storage_path);
-        }
-      } catch (_) { /* ignore */ }
+      storageService.deleteFile(file.storage_path);
+      await quotaService.decrement(req.user.id, file.size || 0);
     }
 
     await query(

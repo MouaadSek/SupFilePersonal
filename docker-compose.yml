@@ -37,14 +37,21 @@ services:
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       OAUTH_CLIENT_ID: ${OAUTH_CLIENT_ID:-}
       OAUTH_CLIENT_SECRET: ${OAUTH_CLIENT_SECRET:-}
-      OAUTH_CALLBACK_URL: ${OAUTH_CALLBACK_URL:-http://localhost:3000/auth/oauth/callback}
+      OAUTH_CALLBACK_URL: ${OAUTH_CALLBACK_URL:-http://localhost:3000/auth/oauth/google/callback}
       STORAGE_PATH: /app/storage
       CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:4000}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      RUN_MIGRATE_ON_START: ${RUN_MIGRATE_ON_START:-false}
     volumes:
       - file_storage:/app/storage
     ports:
       - "3000:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:3000/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   web:
     build:

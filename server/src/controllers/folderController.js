@@ -5,7 +5,14 @@ const zipService = require('../services/zipService');
 async function listRoot(req, res, next) {
   try {
     const folders = await query(
-      'SELECT * FROM folders WHERE owner_id = $1 AND parent_id IS NULL AND trashed = FALSE ORDER BY name',
+      `SELECT f.*,
+        (
+          (SELECT COUNT(*)::int FROM folders c WHERE c.parent_id = f.id AND c.trashed = FALSE) +
+          (SELECT COUNT(*)::int FROM files fi WHERE fi.folder_id = f.id AND fi.trashed = FALSE)
+        ) AS item_count
+       FROM folders f
+       WHERE f.owner_id = $1 AND f.parent_id IS NULL AND f.trashed = FALSE
+       ORDER BY f.name`,
       [req.user.id]
     );
     const files = await query(
@@ -31,7 +38,14 @@ async function listFolder(req, res, next) {
     if (!folder.rows[0]) return res.status(404).json({ error: 'Folder not found' });
 
     const subFolders = await query(
-      'SELECT * FROM folders WHERE parent_id = $1 AND trashed = FALSE ORDER BY name',
+      `SELECT f.*,
+        (
+          (SELECT COUNT(*)::int FROM folders c WHERE c.parent_id = f.id AND c.trashed = FALSE) +
+          (SELECT COUNT(*)::int FROM files fi WHERE fi.folder_id = f.id AND fi.trashed = FALSE)
+        ) AS item_count
+       FROM folders f
+       WHERE f.parent_id = $1 AND f.trashed = FALSE
+       ORDER BY f.name`,
       [req.params.id]
     );
     const files = await query(

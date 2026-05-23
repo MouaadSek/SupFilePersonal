@@ -39,17 +39,61 @@ export function buildPathForItem(parentId: string | null, name: string, all: Fil
   const parentPath = parentId
     ? all.find((f) => f.id === parentId && isActive(f))?.path ?? ''
     : '';
-  const joined = parentPath ? `${parentPath}/${name}` : `/${name}`;
-  return joined.replace(/\/+/g, '/');
+  if (!parentPath) return `/${name}`;
+  return `${parentPath}/${name}`.replace(/\/+/g, '/');
 }
 
-/** Racines visibles à la corbeille : supprimé et le parent n’est pas supprimé dans le même groupe. */
 export function trashRootItems(all: FileItem[]): FileItem[] {
   const trashed = all.filter((f) => f.deletedAt);
-  return trashed.filter((item) => {
-    if (!item.parentId) return true;
-    const parent = all.find((p) => p.id === item.parentId);
-    if (!parent?.deletedAt) return true;
-    return parent.deleteGroupId !== item.deleteGroupId;
+  const roots: FileItem[] = [];
+  for (const item of trashed) {
+    if (!item.parentId || !trashed.some((p) => p.id === item.parentId)) {
+      roots.push(item);
+    }
+  }
+  return roots;
+}
+
+/** Direct children in the flat cache (folders + files). */
+export function countDirectChildren(folderId: string, all: FileItem[]): number {
+  return all.filter((f) => isActive(f) && f.parentId === folderId).length;
+}
+
+/**
+ * Keep each folder's `itemCount` aligned with cached direct children.
+ * Pass parentIds when you know which folders changed (upload, trash, move, listing merge).
+ */
+export function syncFolderItemCounts(
+  files: FileItem[],
+  parentIds?: Iterable<string | null>,
+): FileItem[] {
+  const targets = parentIds
+    ? new Set(parentIds)
+    : null;
+
+  return files.map((f) => {
+    if (f.type !== 'folder' || !isActive(f)) return f;
+    if (targets && !targets.has(f.id)) return f;
+    const count = countDirectChildren(f.id, files);
+    const hasChildrenInCache = files.some((c) => isActive(c) && c.parentId === f.id);
+    if (!hasChildrenInCache && typeof f.itemCount === 'number' && f.itemCount >= 0) {
+      return f;
+    }
+    if (f.itemCount === count) return f;
+    return { ...f, itemCount: count };
   });
+}
+
+/** Nombre d’éléments directs affiché pour un dossier. */
+export function folderChildCount(folder: FileItem, all: FileItem[]): number {
+  const local = countDirectChildren(folder.id, all);
+  if (local > 0) return local;
+  if (typeof folder.itemCount === 'number' && folder.itemCount >= 0) {
+    return folder.itemCount;
+  }
+  return 0;
+}
+
+export function formatFolderChildLabel(count: number): string {
+  return count <= 1 ? `${count} élément` : `${count} éléments`;
 }

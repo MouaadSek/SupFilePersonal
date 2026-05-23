@@ -687,6 +687,7 @@ export default function FilesScreen() {
         renderItem={({ item }) => (
           <FileItemComponent
             item={item}
+            allFiles={files}
             onPress={() => handleFilePress(item)}
             onLongPress={() => handleFileLongPress(item)}
             onMenuPress={() => handleMenuPress(item)}

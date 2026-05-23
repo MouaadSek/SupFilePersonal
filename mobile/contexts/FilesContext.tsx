@@ -10,7 +10,12 @@ import React, {
 import { Alert } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import { FileItem, ShareLink, IncomingShareEntry } from '@/types';
-import { isActive, excludedMoveTargetFolderIds, trashRootItems } from '@/utils/fileTree';
+import {
+  isActive,
+  excludedMoveTargetFolderIds,
+  trashRootItems,
+  syncFolderItemCounts,
+} from '@/utils/fileTree';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   apiListRoot,
@@ -100,6 +105,7 @@ interface FilesContextType {
   ) => Promise<FileItem | null>;
   dismissCompletedUploads: () => void;
   refreshCurrentFolder: () => Promise<void>;
+  refreshRootListing: () => Promise<void>;
   refreshShares: () => Promise<void>;
   cancelUploadJob: (jobId: string) => void;
   getFileById: (fileId: string) => FileItem | undefined;
@@ -188,15 +194,23 @@ export function FilesProvider({ children }: { children: ReactNode }) {
       return;
     }
     void (async () => {
+      setIsLoading(true);
       try {
-        setIsLoading(true);
         await fetchListing(null);
+      } catch (err) {
+        showApiError(err, 'Impossible de charger vos fichiers.');
+      }
+      try {
         await loadTrash();
+      } catch {
+        /* corbeille optionnelle — ne bloque pas la connexion */
+      }
+      try {
         const [links, incoming] = await Promise.all([apiListShares(), apiSharedWithMe()]);
         setShareLinks(links.map(mapApiShare));
         setIncomingShares(incoming.map(mapIncomingShare));
-      } catch (err) {
-        showApiError(err, 'Impossible de charger vos fichiers.');
+      } catch {
+        /* partages optionnels au premier chargement */
       } finally {
         setIsLoading(false);
       }
@@ -228,6 +242,12 @@ export function FilesProvider({ children }: { children: ReactNode }) {
     if (!f || f.deletedAt || f.type !== 'folder') return;
     setCurrentFolder(folderId);
     setSelectedFiles([]);
+    const hasChildren = files.some((x) => isActive(x) && x.parentId === folderId);
+    if (!hasChildren) {
+      void fetchListing(folderId).catch(() => {
+        /* refresh on next focus */
+      });
+    }
   };
 
   const getFilesInFolder = (folderId: string | null) => {
@@ -262,7 +282,9 @@ export function FilesProvider({ children }: { children: ReactNode }) {
         ? filesRef.current.find((f) => f.id === parentId && isActive(f))?.path ?? ''
         : '';
       const item = mapApiFolder(apiFolder, buildPath(parentPath || null, apiFolder.name));
-      setFiles((prev) => [...prev.filter((f) => f.id !== item.id), item]);
+      setFiles((prev) =>
+        syncFolderItemCounts([...prev.filter((f) => f.id !== item.id), item], [parentId]),
+      );
       return item;
     } catch (err) {
       showApiError(err, 'Impossible de créer le dossier.');
@@ -399,7 +421,9 @@ export function FilesProvider({ children }: { children: ReactNode }) {
           }
         : {}),
     };
-    setFiles((prev) => [...prev.filter((f) => f.id !== withLocal.id), withLocal]);
+    setFiles((prev) =>
+      syncFolderItemCounts([...prev.filter((f) => f.id !== withLocal.id), withLocal], [parentId]),
+    );
     void refreshSession().catch(() => {});
     return withLocal;
   };
@@ -472,6 +496,15 @@ export function FilesProvider({ children }: { children: ReactNode }) {
     }
   }, [currentFolder, fetchListing, isAuthenticated]);
 
+  const refreshRootListing = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      await fetchListing(null);
+    } catch {
+      /* silencieux — rafraîchissement depuis l’accueil */
+    }
+  }, [fetchListing, isAuthenticated]);
+
   const refreshShares = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
@@ -532,13 +565,20 @@ export function FilesProvider({ children }: { children: ReactNode }) {
   const fetchSearchResults = useCallback(async (query: string): Promise<FileItem[]> => {
     const raw = query.trim();
     if (raw.length < 2) return [];
-    const rows = await apiSearch({ q: raw });
-    return rows.map((f) => {
+    const { files: fileRows, folders: folderRows } = await apiSearch({ q: raw });
+    const folderItems = folderRows.map((folder) => {
+      const parentPath = folder.parent_id
+        ? filesRef.current.find((x) => x.id === folder.parent_id)?.path ?? ''
+        : '';
+      return mapApiFolder(folder, buildPath(parentPath || null, folder.name));
+    });
+    const fileItems = fileRows.map((f) => {
       const parentPath = f.folder_id
         ? filesRef.current.find((x) => x.id === f.folder_id)?.path ?? ''
         : '';
       return mapApiFile(f, buildPath(parentPath || null, f.name));
     });
+    return [...folderItems, ...fileItems];
   }, []);
 
   const getTrashRoots = useCallback(() => trashRootItems(files), [files]);
@@ -672,6 +712,7 @@ export function FilesProvider({ children }: { children: ReactNode }) {
         enqueueUploadWithProgress,
         dismissCompletedUploads,
         refreshCurrentFolder,
+        refreshRootListing,
         refreshShares,
         cancelUploadJob,
         getFileById,

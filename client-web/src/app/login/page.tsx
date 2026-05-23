@@ -7,8 +7,7 @@ import { useRouter } from 'next/navigation';
 import { apiLogin } from '@/lib/api';
 import { saveToken } from '@/lib/auth';
 import AuthLayout from '@/components/AuthLayout';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+import { getPublicApiBase } from '@/lib/apiBase';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -119,7 +118,7 @@ export default function LoginPage() {
         <div className="space-y-3">
           {/* Google */}
           <a
-            href={`${API_BASE}/auth/oauth/google`}
+            href={`${getPublicApiBase()}/auth/oauth/google`}
             className="flex items-center justify-center gap-3 w-full py-3 rounded-xl border border-slate-light dark:border-slate-600
                        bg-white dark:bg-slate-700 text-slate-dark dark:text-slate-100 text-sm font-medium
                        hover:bg-gray-50 dark:hover:bg-slate-600 hover:border-gray-300 dark:hover:border-slate-500
@@ -131,7 +130,7 @@ export default function LoginPage() {
 
           {/* GitHub */}
           <a
-            href={`${API_BASE}/auth/oauth/github`}
+            href={`${getPublicApiBase()}/auth/oauth/github`}
             className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-slate-light dark:border-slate-600
                        text-slate-dark dark:text-slate-100 text-sm font-medium
                        hover:bg-brand-bg dark:hover:bg-slate-700 transition-colors duration-200"

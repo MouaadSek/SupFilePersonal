@@ -16,8 +16,23 @@ const dashboardRoutes = require('./routes/dashboard');
 const app = express();
 
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+const corsOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:4000')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 app.use(cors({
-  origin: process.env.CLIENT_ORIGIN || 'http://localhost:4000',
+  origin(origin, callback) {
+    if (!origin || corsOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    if (process.env.NODE_ENV !== 'production') {
+      const devOrigin =
+        /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3})(:\d+)?$/;
+      if (devOrigin.test(origin)) return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
 }));
 app.use(express.json());
@@ -34,6 +49,7 @@ app.use('/files',     fileRoutes);
 app.use('/folders',   folderRoutes);
 app.use('/shares',    shareRoutes);
 app.use('/dashboard', dashboardRoutes);
+app.use('/trash',     require('./routes/trash'));
 app.use('/search',    require('./routes/search'));
 app.use('/users',     require('./routes/users'));
 
@@ -42,7 +58,14 @@ app.use((err, _req, res, _next) => {
   res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
 });
 
-async function migrate() {
+async function maybeMigrate() {
+  const runOnStart =
+    process.env.RUN_MIGRATE_ON_START === 'true' ||
+    (process.env.RUN_MIGRATE_ON_START !== 'false' && process.env.NODE_ENV !== 'production');
+  if (!runOnStart) {
+    console.log('ℹ️  Skipping schema apply on start (set RUN_MIGRATE_ON_START=true to enable).');
+    return;
+  }
   const sql = fs.readFileSync(path.join(__dirname, 'db', 'schema.sql'), 'utf8');
   await pool.query(sql);
   console.log('✅  Database schema applied successfully.');
@@ -50,12 +73,16 @@ async function migrate() {
 
 const PORT = process.env.PORT || 3000;
 
-migrate()
+maybeMigrate()
   .then(() => {
+    if (!process.env.JWT_SECRET) {
+      console.error('❌  JWT_SECRET is required');
+      process.exit(1);
+    }
     encryptionService.logStartupWarning();
     app.listen(PORT, () => console.log(`SUPFile server running on port ${PORT}`));
   })
   .catch((err) => {
-    console.error('❌  Migration failed — server did not start:', err.message);
+    console.error('❌  Server startup failed:', err.message);
     process.exit(1);
   });

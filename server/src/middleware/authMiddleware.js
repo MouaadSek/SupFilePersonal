@@ -6,12 +6,12 @@ const jwt = require('jsonwebtoken');
  */
 function authMiddleware(req, res, next) {
   const header = req.headers.authorization;
-  const queryToken = req.query?.token;
+  const queryToken = req.query?.token || req.query?.access_token;
 
   let token;
   if (header && header.startsWith('Bearer ')) {
     token = header.slice(7);
-  } else if (queryToken) {
+  } else if (typeof queryToken === 'string' && queryToken) {
     token = queryToken;
   } else {
     return res.status(401).json({ error: 'Missing or invalid Authorization header' });

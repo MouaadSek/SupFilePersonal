@@ -1,7 +1,8 @@
 const router = require('express').Router();
 const auth = require('../middleware/authMiddleware');
-const { quota, recent, breakdown } = require('../controllers/dashboardController');
+const { quota, recent, breakdown, home } = require('../controllers/dashboardController');
 
+router.get('/home',      auth, home);
 router.get('/quota',     auth, quota);
 router.get('/recent',    auth, recent);
 router.get('/breakdown', auth, breakdown);

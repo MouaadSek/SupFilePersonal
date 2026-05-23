@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+import { getApiBase } from '@/lib/apiBase';
 
 interface ShareResource {
   id: string;
@@ -148,7 +148,7 @@ export default function SharePage({ params }: { params: { token: string } }) {
 
   useEffect(() => {
     async function init() {
-      const res = await fetch(`${API_BASE}/shares/${token}`);
+      const res = await fetch(`${getApiBase()}/shares/${token}`);
       if (res.status === 404) { setPageState('not_found'); return; }
       if (res.status === 410) { setPageState('expired'); return; }
       if (res.status === 403) { setPageState('protected'); return; }
@@ -166,7 +166,7 @@ export default function SharePage({ params }: { params: { token: string } }) {
     setPwLoading(true);
     setPwError('');
 
-    const res = await fetch(`${API_BASE}/shares/${token}?password=${encodeURIComponent(pw)}`);
+    const res = await fetch(`${getApiBase()}/shares/${token}?password=${encodeURIComponent(pw)}`);
     const data = await res.json();
 
     if (res.status === 403) {
@@ -182,7 +182,7 @@ export default function SharePage({ params }: { params: { token: string } }) {
   }
 
   function getDownloadUrl() {
-    const base = `${API_BASE}/shares/${token}/download`;
+    const base = `${getApiBase()}/shares/${token}/download`;
     return verifiedPw ? `${base}?password=${encodeURIComponent(verifiedPw)}` : base;
   }
 

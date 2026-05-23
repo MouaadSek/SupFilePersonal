@@ -305,7 +305,7 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
               {user?.avatar_url && !avatarImgError ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}${user.avatar_url}`}
+                  src={`${typeof window !== 'undefined' ? '/api' : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000')}${user.avatar_url}`}
                   alt={user.display_name}
                   className="w-8 h-8 rounded-full object-cover"
                   onError={() => setAvatarImgError(true)}

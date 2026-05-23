@@ -25,6 +25,31 @@ export function isImageFile(file: FileItem): boolean {
   return /\.(png|jpe?g|gif|webp|heic|heif|bmp|svg)$/i.test(file.name);
 }
 
+export function isPdfFile(file: FileItem): boolean {
+  if (file.type !== 'file') return false;
+  const mime = effectiveMimeTypeForFile(file);
+  return mime === 'application/pdf' || /\.pdf$/i.test(file.name);
+}
+
+export function isVideoFile(file: FileItem): boolean {
+  if (file.type !== 'file') return false;
+  const mime = effectiveMimeTypeForFile(file);
+  if (mime.startsWith('video/')) return true;
+  return /\.(mp4|mov|webm|mkv|m4v|avi)$/i.test(file.name);
+}
+
+export function isAudioFile(file: FileItem): boolean {
+  if (file.type !== 'file') return false;
+  const mime = effectiveMimeTypeForFile(file);
+  if (mime.startsWith('audio/')) return true;
+  return /\.(mp3|m4a|wav|ogg|aac|flac)$/i.test(file.name);
+}
+
+/** Affiche une miniature (images) ou une pastille extension (PDF, vidéo, audio, etc.). */
+export function supportsImageThumbnail(file: FileItem): boolean {
+  return isImageFile(file);
+}
+
 /** Extension affichée dans les listes (ex. PDF, DOCX). */
 export function fileExtensionLabel(filename: string): string {
   const base = filename.trim();
