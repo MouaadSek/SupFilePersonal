@@ -10,7 +10,12 @@ import React, {
 import { Alert } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import { FileItem, ShareLink, IncomingShareEntry } from '@/types';
-import { isActive, excludedMoveTargetFolderIds, trashRootItems } from '@/utils/fileTree';
+import {
+  isActive,
+  excludedMoveTargetFolderIds,
+  trashRootItems,
+  syncFolderItemCounts,
+} from '@/utils/fileTree';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   apiListRoot,
@@ -277,7 +282,9 @@ export function FilesProvider({ children }: { children: ReactNode }) {
         ? filesRef.current.find((f) => f.id === parentId && isActive(f))?.path ?? ''
         : '';
       const item = mapApiFolder(apiFolder, buildPath(parentPath || null, apiFolder.name));
-      setFiles((prev) => [...prev.filter((f) => f.id !== item.id), item]);
+      setFiles((prev) =>
+        syncFolderItemCounts([...prev.filter((f) => f.id !== item.id), item], [parentId]),
+      );
       return item;
     } catch (err) {
       showApiError(err, 'Impossible de créer le dossier.');
@@ -414,7 +421,9 @@ export function FilesProvider({ children }: { children: ReactNode }) {
           }
         : {}),
     };
-    setFiles((prev) => [...prev.filter((f) => f.id !== withLocal.id), withLocal]);
+    setFiles((prev) =>
+      syncFolderItemCounts([...prev.filter((f) => f.id !== withLocal.id), withLocal], [parentId]),
+    );
     void refreshSession().catch(() => {});
     return withLocal;
   };

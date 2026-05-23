@@ -1,5 +1,5 @@
 import type { FileItem } from '@/types';
-import { isActive } from '@/utils/fileTree';
+import { isActive, syncFolderItemCounts } from '@/utils/fileTree';
 import type { FolderListing } from './folders';
 import { buildPath, mapApiFile, mapApiFolder } from './mappers';
 
@@ -37,7 +37,9 @@ export function mergeFolderListing(files: FileItem[], listing: FolderListing): F
       : [...next, mapped];
   }
 
-  return [...next, ...childItems];
+  const merged = [...next, ...childItems];
+  // Sync counts for folders whose direct children were just loaded (this listing's parent).
+  return syncFolderItemCounts(merged, [folderId]);
 }
 
 export function mapTrashListing(trash: {

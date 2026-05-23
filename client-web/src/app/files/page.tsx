@@ -18,6 +18,7 @@ interface Folder {
   name: string;
   parent_id: string | null;
   updated_at: string;
+  item_count?: number;
 }
 
 interface FileItem {
@@ -945,8 +946,12 @@ function FilesPageInner() {
     }
 
     try {
-      const res = await fetch(`${getApiBase()}/files/${file.id}/preview`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
+      const token = getToken();
+      const previewUrl = token
+        ? `${getApiBase()}/files/${file.id}/preview?access_token=${encodeURIComponent(token)}`
+        : `${getApiBase()}/files/${file.id}/preview`;
+      const res = await fetch(previewUrl, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) throw new Error('Failed to load preview');
       const blob = await res.blob();
@@ -1340,6 +1345,9 @@ function FilesPageInner() {
                           ) : (
                             <p className="text-xs font-medium text-slate-dark dark:text-slate-100 text-center truncate w-full">
                               {f.name}
+                            </p>
+                            <p className="text-[10px] text-slate-mid dark:text-slate-400 text-center">
+                              {(f.item_count ?? 0) === 1 ? '1 item' : `${f.item_count ?? 0} items`}
                             </p>
                           )}
 

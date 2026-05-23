@@ -54,14 +54,44 @@ export function trashRootItems(all: FileItem[]): FileItem[] {
   return roots;
 }
 
-/** Nombre d’éléments directs dans un dossier (API prioritaire, sinon cache local). */
+/** Direct children in the flat cache (folders + files). */
+export function countDirectChildren(folderId: string, all: FileItem[]): number {
+  return all.filter((f) => isActive(f) && f.parentId === folderId).length;
+}
+
+/**
+ * Keep each folder's `itemCount` aligned with cached direct children.
+ * Pass parentIds when you know which folders changed (upload, trash, move, listing merge).
+ */
+export function syncFolderItemCounts(
+  files: FileItem[],
+  parentIds?: Iterable<string | null>,
+): FileItem[] {
+  const targets = parentIds
+    ? new Set(parentIds)
+    : null;
+
+  return files.map((f) => {
+    if (f.type !== 'folder' || !isActive(f)) return f;
+    if (targets && !targets.has(f.id)) return f;
+    const count = countDirectChildren(f.id, files);
+    const hasChildrenInCache = files.some((c) => isActive(c) && c.parentId === f.id);
+    if (!hasChildrenInCache && typeof f.itemCount === 'number' && f.itemCount >= 0) {
+      return f;
+    }
+    if (f.itemCount === count) return f;
+    return { ...f, itemCount: count };
+  });
+}
+
+/** Nombre d’éléments directs affiché pour un dossier. */
 export function folderChildCount(folder: FileItem, all: FileItem[]): number {
-  const local = all.filter((f) => isActive(f) && f.parentId === folder.id).length;
-  const fromApi = folder.itemCount;
-  if (typeof fromApi === 'number' && fromApi >= 0) {
-    return Math.max(fromApi, local);
+  const local = countDirectChildren(folder.id, all);
+  if (local > 0) return local;
+  if (typeof folder.itemCount === 'number' && folder.itemCount >= 0) {
+    return folder.itemCount;
   }
-  return local;
+  return 0;
 }
 
 export function formatFolderChildLabel(count: number): string {

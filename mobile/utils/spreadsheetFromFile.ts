@@ -19,7 +19,11 @@ export async function loadSpreadsheetRows(file: FileItem): Promise<string[][]> {
     const b64 = await FileSystem.readAsStringAsync(file.localUri, { encoding: 'base64' });
     wb = XLSX.read(b64, { type: 'base64' });
   } else {
-    const remote = file.downloadUrl || file.previewUrl;
+    const { fileAuthenticatedPreviewUrl } = await import('@/services/api/client');
+    const remote =
+      (file.id ? fileAuthenticatedPreviewUrl(file.id) : undefined) ||
+      file.downloadUrl ||
+      file.previewUrl;
     if (remote) {
       const { fetchWithAuth } = await import('@/utils/authenticatedFetch');
       const res = await fetchWithAuth(remote);
