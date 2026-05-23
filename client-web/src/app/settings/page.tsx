@@ -57,7 +57,7 @@ function ThemeToggle({ isDark, onToggle }: { isDark: boolean; onToggle: () => vo
   );
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_BASE = typeof window !== 'undefined' ? '/api' : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000');
 
 export default function SettingsPage() {
   const { user, loading: authLoading, logout } = useAuth();

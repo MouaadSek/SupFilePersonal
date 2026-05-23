@@ -57,11 +57,13 @@ services:
     build:
       context: ./client-web
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://server:3000
     restart: unless-stopped
     depends_on:
       - server
     environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000}
+      NEXT_PUBLIC_API_URL: http://server:3000
     ports:
       - "4000:4000"
 
