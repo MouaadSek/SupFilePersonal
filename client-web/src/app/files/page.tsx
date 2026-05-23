@@ -1080,7 +1080,7 @@ function FilesPageInner() {
           </div>
 
           {/* Type + date filters */}
-          <div className="flex items-center gap-2 flex-wrap mb-5">
+          <div className="flex flex-wrap gap-2 mb-5">
             {([
               { label: 'All',       value: '' },
               { label: 'Images',    value: 'image' },
@@ -1101,7 +1101,7 @@ function FilesPageInner() {
               </button>
             ))}
 
-            <div className="ml-auto flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
               {([
                 { label: 'Any time',   value: '' },
                 { label: 'Today',      value: 'today' },
@@ -1145,7 +1145,7 @@ function FilesPageInner() {
                       <div
                         key={f.id}
                         onClick={() => { clearSearch(); openFolder(f); }}
-                        className={`flex items-center gap-4 px-5 py-3.5 hover:bg-brand-bg/50 dark:hover:bg-slate-700/50
+                        className={`flex items-center gap-3 sm:gap-4 px-3 sm:px-5 py-3.5 hover:bg-brand-bg/50 dark:hover:bg-slate-700/50
                                     transition cursor-pointer group
                                     ${i !== searchFolders.length - 1 ? 'border-b border-slate-light/60 dark:border-slate-700/60' : ''}`}
                       >
@@ -1176,7 +1176,7 @@ function FilesPageInner() {
                       return (
                         <div
                           key={f.id}
-                          className={`flex items-center gap-4 px-5 py-3.5 hover:bg-brand-bg/50 dark:hover:bg-slate-700/50 transition group
+                          className={`flex items-center gap-3 sm:gap-4 px-3 sm:px-5 py-3.5 hover:bg-brand-bg/50 dark:hover:bg-slate-700/50 transition group
                                       ${i !== searchFiles.length - 1 ? 'border-b border-slate-light/60 dark:border-slate-700/60' : ''}`}
                         >
                           <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
@@ -1367,7 +1367,7 @@ function FilesPageInner() {
                                 </svg>
                               </button>
                               {activeMenu?.type === 'folder' && activeMenu?.id === f.id && (
-                                <div data-menu className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-light dark:border-slate-700 min-w-40 py-1.5">
+                                <div data-menu className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-light dark:border-slate-700 min-w-36 py-1.5">
                                   {[
                                     { label: 'Download ZIP', action: () => { downloadZip(f); setActiveMenu(null); } },
                                     { label: 'Share link',   action: () => { setShareTarget({ type: 'folder', id: f.id, name: f.name }); setActiveMenu(null); } },
@@ -1410,7 +1410,7 @@ function FilesPageInner() {
                           draggable
                           onDragStart={(e) => handleDragStart(e, f)}
                           onDragEnd={handleDragEnd}
-                          className={`relative flex items-center gap-4 px-5 py-3.5 hover:bg-brand-bg/50 dark:hover:bg-slate-700/50 transition group
+                          className={`relative flex items-center gap-3 sm:gap-4 px-3 sm:px-5 py-3.5 hover:bg-brand-bg/50 dark:hover:bg-slate-700/50 transition group
                                       cursor-grab active:cursor-grabbing
                                       ${i === 0 ? 'rounded-t-2xl' : ''}
                                       ${i === files.length - 1 ? 'rounded-b-2xl' : 'border-b border-slate-light/60 dark:border-slate-700/60'}
