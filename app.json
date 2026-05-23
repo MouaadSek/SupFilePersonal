@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "SUPFILE",
+    "slug": "supfile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "scheme": "supfile",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.supfile.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#30a8fe"
+      },
+      "package": "com.supfile.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "SUPFILE accède à vos photos et vidéos pour les importer dans votre espace.",
+          "cameraPermission": "SUPFILE utilise la caméra pour prendre des photos à enregistrer dans votre espace."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#ffffff",
+          "image": "./assets/splash.png",
+          "imageWidth": 200
+        }
+      ],
+      "expo-font",
+      "expo-video"
+    ]
+  }
+}

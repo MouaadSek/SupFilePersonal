@@ -1,26 +1,67 @@
-# SUPFile
+# SUPFILE (Expo mobile app)
 
-Monorepo for the SUPFile project (backend, web, mobile).
+Cloud storage client for the SUPFile API.
 
-## Git workflow
+## Prerequisites
 
-- **main** — stable, production-ready code only (no direct pushes).
-- **develop** — continuous integration; base branch for features.
-- **feat/prenom** — feature branches (e.g. `feat/dhaker`, `feat/mouadh`).
-- **hotfix/...** — urgent fixes from `main`, merged back into `main` and `develop`.
+- Node.js 20+
+- [Expo](https://docs.expo.dev/) (`npx expo`)
+- SUPFile API running (see backend below)
 
-Feature work merges into `develop` via Pull Request (at least one reviewer). Releases merge `develop` → `main`.
+## Backend API
 
-Commit messages follow: `type(scope): short description` (e.g. `feat(auth): add JWT login`).
+The server lives at `~/Downloads/supfileDev-mouaad/server` (or your clone of that folder).
 
- 
-## Local setup
+```bash
+cd /path/to/supfileDev-mouaad/server
+cp .env.example .env
+# Edit .env: DB_PASSWORD, JWT_SECRET (required)
 
-1. Copy `.env.example` to `.env` and set real values (never commit `.env`).
-2. Follow stack-specific instructions as they are added per package.
-
-## Remote
-
-```text
-git@github.com:dhakerrhim/supfileDev.git
+npm install
+npm run dev
 ```
+
+Or with Docker (from `server/`, ensure parent paths exist or adjust compose):
+
+```bash
+export DB_PASSWORD=yourpassword JWT_SECRET=your-long-secret
+docker compose up --build
+```
+
+API listens on **port 3000**. Check: `curl http://localhost:3000/health`
+
+## Connect the app to the API
+
+1. Copy env: `cp .env.example .env`
+2. Set `EXPO_PUBLIC_API_URL` to the machine running the API:
+   - iOS simulator / web: `http://localhost:3000`
+   - Android emulator: `http://10.0.2.2:3000`
+   - Physical device: `http://<your-pc-lan-ip>:3000` (same Wi‑Fi as the phone)
+3. Restart Expo after changing env (`npx expo start -c`)
+
+## Run the app
+
+```bash
+npm install
+npx expo start
+```
+
+Scan the QR code with Expo Go (device) or press `a` / `i` for emulator.
+
+## Auth
+
+Register or log in in the app. The API returns a JWT; the app stores it and sends `Authorization: Bearer <token>` on protected routes.
+
+## Features wired to the API
+
+| Screen | API |
+|--------|-----|
+| Login / Register | `POST /auth/login`, `POST /auth/register`, `GET /auth/me` |
+| Home | `GET /dashboard/quota`, `/recent`, `/breakdown` |
+| Files | `GET/POST/PATCH/DELETE /folders`, `POST /files/upload`, `GET /search` |
+| Trash | `GET /files/trash`, restore, permanent delete, empty |
+| Shares | `GET/POST/DELETE /shares`, `GET /shares/with-me`, folder members |
+| Profile | `PUT /users/me`, password, avatar |
+| Preview | `GET /files/:id`, preview, download |
+
+Pull-to-refresh on Files and focus refresh on Files/Shares reload data from the API.

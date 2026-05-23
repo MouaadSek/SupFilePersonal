@@ -1,0 +1,1 @@
+export { ShareCollaborationModal } from './ShareCollaborationModal';
