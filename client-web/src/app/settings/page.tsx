@@ -66,6 +66,7 @@ export default function SettingsPage() {
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [localAvatarUrl, setLocalAvatarUrl] = useState<string | null>(null);
   const [avatarLoading,  setAvatarLoading]  = useState(false);
+  const [avatarRemoved,  setAvatarRemoved]  = useState(false);
 
   // profile
   const [displayName, setDisplayName] = useState('');
@@ -111,12 +112,27 @@ export default function SettingsPage() {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setLocalAvatarUrl(res.data.avatar_url);
+      setAvatarRemoved(false);
       showToast('Avatar updated!', 'success');
     } catch {
       showToast('Failed to upload avatar.', 'error');
     } finally {
       setAvatarLoading(false);
       if (e.target) e.target.value = '';
+    }
+  }
+
+  async function handleAvatarRemove() {
+    setAvatarLoading(true);
+    try {
+      await api.delete('/users/me/avatar');
+      setLocalAvatarUrl(null);
+      setAvatarRemoved(true);
+      showToast('Avatar removed.', 'success');
+    } catch {
+      showToast('Failed to remove avatar.', 'error');
+    } finally {
+      setAvatarLoading(false);
     }
   }
 
@@ -183,11 +199,13 @@ export default function SettingsPage() {
         {/* ── Avatar + name header ── */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-light dark:border-slate-700 px-6 py-5 flex items-center gap-5">
           {(() => {
-            const avatarSrc = localAvatarUrl
-              ? `${API_BASE}${localAvatarUrl}`
-              : user?.avatar_url
-                ? `${API_BASE}${user.avatar_url}`
-                : null;
+            const avatarSrc = avatarRemoved
+              ? null
+              : localAvatarUrl
+                ? `${API_BASE}${localAvatarUrl}`
+                : user?.avatar_url
+                  ? `${API_BASE}${user.avatar_url}`
+                  : null;
             return (
               <>
                 <button
@@ -234,7 +252,19 @@ export default function SettingsPage() {
                   {user?.display_name || 'No name set'}
                 </p>
                 <p className="text-sm text-slate-mid dark:text-slate-400">{user?.email}</p>
-                <p className="text-xs text-slate-mid dark:text-slate-400 mt-0.5">Click avatar to change photo</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-xs text-slate-mid dark:text-slate-400">Click avatar to change photo</p>
+                  {(localAvatarUrl || (!avatarRemoved && user?.avatar_url)) && (
+                    <button
+                      type="button"
+                      onClick={handleAvatarRemove}
+                      disabled={avatarLoading}
+                      className="text-xs text-red-400 hover:text-red-600 transition disabled:opacity-50"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
               </>
             }
           </div>

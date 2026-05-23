@@ -1,8 +1,12 @@
 const router = require('express').Router();
+const path = require('path');
+const fs = require('fs');
 const auth = require('../middleware/authMiddleware');
 const upload = require('../middleware/uploadMiddleware');
 const { query } = require('../db');
 const bcrypt = require('bcrypt');
+
+const STORAGE_PATH = process.env.STORAGE_PATH || './storage';
 
 // PUT /users/me
 router.put('/me', auth, async (req, res, next) => {
@@ -51,6 +55,24 @@ router.post('/me/avatar', auth, upload.single('avatar'), async (req, res, next) 
       [avatarUrl, req.user.id]
     );
     return res.json(result.rows[0]);
+  } catch (err) { next(err); }
+});
+
+// DELETE /users/me/avatar
+router.delete('/me/avatar', auth, async (req, res, next) => {
+  try {
+    const row = await query('SELECT avatar_url FROM users WHERE id = $1', [req.user.id]);
+    const avatarUrl = row.rows[0]?.avatar_url;
+
+    await query('UPDATE users SET avatar_url = NULL WHERE id = $1', [req.user.id]);
+
+    if (avatarUrl) {
+      const filename = path.basename(avatarUrl);
+      const filePath = path.resolve(STORAGE_PATH, filename);
+      fs.unlink(filePath, () => {});
+    }
+
+    return res.json({ message: 'Avatar removed' });
   } catch (err) { next(err); }
 });
 
