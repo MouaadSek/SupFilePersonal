@@ -735,8 +735,14 @@ function PreviewMetaPanel({
 export default function PreviewScreen() {
   const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getFileById, renameItem, files } = useFiles();
+  const { getFileById, ensureFileInIndex, renameItem, files } = useFiles();
   const file = getFileById(id);
+
+  useEffect(() => {
+    if (id && !getFileById(id)) {
+      void ensureFileInIndex(id);
+    }
+  }, [id, getFileById, ensureFileInIndex]);
   const [renameVisible, setRenameVisible] = useState(false);
   const [renameTarget, setRenameTarget] = useState<FileItem | null>(null);
   const [galleryDisplayFile, setGalleryDisplayFile] = useState<FileItem | null>(null);

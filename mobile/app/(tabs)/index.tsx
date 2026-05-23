@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -31,13 +32,10 @@ import { useFiles } from '@/contexts/FilesContext';
 import { Logo, UploadProgress, BottomSheet } from '@/components/ui';
 import { CreateFolderModal } from '@/components/files';
 import { StorageBreakdownChart } from '@/components/dashboard';
-import {
-  mockStorageStats,
-  mockActivities,
-  formatFileSize,
-  formatDate,
-  getFileColor,
-} from '@/data/mockData';
+import { formatFileSize, formatDate, getFileColor } from '@/data/mockData';
+import { apiDashboardHome } from '@/services/api/dashboard';
+import { mapApiBreakdownSegments } from '@/services/api/mappers';
+import type { Activity } from '@/types';
 import { FontSize, Spacing, BorderRadius } from '@/constants/theme';
 import { FileItem } from '@/types';
 import {
@@ -136,20 +134,57 @@ export default function HomeScreen() {
     setCreateFolderVisible(true);
   };
 
-  const recentFiles = useMemo(() => getRecentFilesForDashboard(files, 5), [files]);
+  const [recentActivities, setRecentActivities] = useState<Activity[]>([]);
+  const [breakdownSegments, setBreakdownSegments] = useState<
+    ReturnType<typeof mapApiBreakdownSegments>
+  >([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return;
+      void apiDashboardHome()
+        .then((home) => {
+          setBreakdownSegments(mapApiBreakdownSegments(home.breakdown));
+          setRecentActivities(
+            home.recent.map((f, i) => ({
+              id: f.id || `recent-${i}`,
+              type: 'upload' as const,
+              fileName: f.name,
+              fileId: f.id,
+              timestamp: new Date(f.updated_at || f.created_at),
+            })),
+          );
+        })
+        .catch(() => {
+          /* keep computed fallback from local files */
+        });
+    }, [user]),
+  );
+
+  const storageUsed = user?.storageUsed ?? 0;
+  const storageTotal = Math.max(user?.storageLimit ?? 1, 1);
+  const storagePercentage = (storageUsed / storageTotal) * 100;
+
+  const recentFiles = useMemo(() => {
+    if (recentActivities.length > 0) {
+      return recentActivities
+        .map((a) => files.find((f) => f.id === a.fileId && !f.deletedAt))
+        .filter((f): f is FileItem => !!f)
+        .slice(0, 5);
+    }
+    return getRecentFilesForDashboard(files, 5);
+  }, [files, recentActivities]);
 
   const folders = files.filter((f) => !f.deletedAt && f.type === 'folder' && f.parentId === null);
 
-  const storagePercentage = (mockStorageStats.used / mockStorageStats.total) * 100;
-
   const dashboardBreakdown = useMemo(() => {
-    const fallback = mockStorageStats.breakdown.map((b) => ({
-      type: b.type,
-      size: b.size,
-      color: b.color,
-    }));
-    return buildDashboardBreakdown(files, mockStorageStats.used, fallback);
-  }, [files]);
+    if (breakdownSegments.length > 0) return breakdownSegments;
+    return buildDashboardBreakdown(files, storageUsed, [
+      { type: 'Photos', size: 0, color: '#10b981' },
+      { type: 'Documents', size: 0, color: '#30a8fe' },
+      { type: 'Autres', size: 0, color: '#94a3b8' },
+    ]);
+  }, [files, storageUsed, breakdownSegments]);
 
   const quickActions = [
     { icon: Upload, label: 'Importer', color: colors.primary },
@@ -244,10 +279,10 @@ export default function HomeScreen() {
           </View>
           <View style={styles.storageInfo}>
             <Text style={styles.storageUsed}>
-              {formatFileSize(mockStorageStats.used)}
+              {formatFileSize(storageUsed)}
             </Text>
             <Text style={styles.storageTotal}>
-              {' '}/ {formatFileSize(mockStorageStats.total)}
+              {' '}/ {formatFileSize(storageTotal)}
             </Text>
           </View>
           <View style={styles.progressBarContainer}>
@@ -262,7 +297,7 @@ export default function HomeScreen() {
 
         <StorageBreakdownChart
           segments={dashboardBreakdown}
-          totalForPercent={mockStorageStats.used}
+          totalForPercent={storageUsed}
           title="Répartition de l’espace disque"
         />
 
@@ -381,7 +416,7 @@ export default function HomeScreen() {
               Activite recente
             </Text>
           </View>
-          {mockActivities.slice(0, 3).map((activity) => (
+          {recentActivities.slice(0, 3).map((activity) => (
             <View
               key={activity.id}
               style={[styles.activityItem, { borderBottomColor: colors.border }]}

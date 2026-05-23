@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
@@ -96,6 +96,7 @@ export default function FilesScreen() {
     moveItems,
     refreshCurrentFolder,
     searchFiles,
+    fetchSearchResults,
   } = useFiles();
 
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
@@ -119,6 +120,7 @@ export default function FilesScreen() {
   const [showSearchFilters, setShowSearchFilters] = useState(false);
   const [searchTypeFilter, setSearchTypeFilter] = useState<SearchFileTypeFilter>('all');
   const [searchDateFilter, setSearchDateFilter] = useState<SearchDateFilter>('all');
+  const [serverSearchResults, setServerSearchResults] = useState<FileItem[]>([]);
 
   const closeImportMenu = useCallback(() => setImportMenuVisible(false), []);
 
@@ -198,6 +200,25 @@ export default function FilesScreen() {
     return q.length >= 2 || searchTypeFilter !== 'all' || searchDateFilter !== 'all';
   }, [searchQuery, searchTypeFilter, searchDateFilter]);
 
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!isSearchMode || q.length < 2) {
+      setServerSearchResults([]);
+      return;
+    }
+    let cancelled = false;
+    void fetchSearchResults(q)
+      .then((rows) => {
+        if (!cancelled) setServerSearchResults(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setServerSearchResults([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [searchQuery, isSearchMode, fetchSearchResults]);
+
   useFocusEffect(
     useCallback(() => {
       if (!isSearchMode) void refreshCurrentFolder();
@@ -211,7 +232,7 @@ export default function FilesScreen() {
     } else {
       const q = searchQuery.trim();
       if (q.length >= 2) {
-        raw = searchFiles(q);
+        raw = serverSearchResults.length > 0 ? serverSearchResults : searchFiles(q);
       } else {
         raw = activeFiles;
       }
@@ -250,6 +271,7 @@ export default function FilesScreen() {
     searchDateFilter,
     getFilesInFolder,
     searchFiles,
+    serverSearchResults,
     activeFiles,
     sortBy,
     sortAsc,

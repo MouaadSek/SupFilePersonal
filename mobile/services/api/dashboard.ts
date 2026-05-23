@@ -8,15 +8,9 @@ export type DashboardHomeResponse = {
   breakdown: ApiStorageBreakdown[];
 };
 
-/** Aggregates dashboard endpoints (server has no single /dashboard/home route). */
+/** Single round-trip for the home screen (`GET /dashboard/home`). */
 export async function apiDashboardHome(): Promise<DashboardHomeResponse> {
-  const [quota, recent, breakdown] = await Promise.all([
-    apiQuota(),
-    apiRecentFiles(),
-    apiStorageBreakdown(),
-  ]);
-  const recent_images = recent.filter((f) => f.mime_type?.startsWith('image/'));
-  return { quota, recent, recent_images, breakdown };
+  return apiRequest<DashboardHomeResponse>('/dashboard/home');
 }
 
 export async function apiQuota(): Promise<{ quota_used: number; quota_total: number }> {

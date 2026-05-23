@@ -5,30 +5,60 @@ import React, {
   useRef,
   ReactNode,
   useCallback,
+  useEffect,
 } from 'react';
 import { Alert } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import { FileItem, ShareLink, IncomingShareEntry } from '@/types';
-import { mockFiles, mockSharedLinks, mockIncomingShares } from '@/data/mockData';
+import { isActive, excludedMoveTargetFolderIds, trashRootItems } from '@/utils/fileTree';
+import { useAuth } from '@/contexts/AuthContext';
 import {
-  isActive,
-  collectSubtreeIds,
-  excludedMoveTargetFolderIds,
-  buildPathForItem,
-  trashRootItems,
-} from '@/utils/fileTree';
+  apiListRoot,
+  apiListFolder,
+  apiCreateFolder,
+  apiUpdateFolder,
+  apiTrashFolder,
+  apiRestoreFolder,
+  apiInviteFolderMember,
+} from '@/services/api/folders';
+import {
+  apiUpdateFile,
+  apiTrashFile,
+  apiRestoreFile,
+  apiGetFile,
+  apiUploadFileWithProgress,
+} from '@/services/api/files';
+import { apiSearch } from '@/services/api/dashboard';
+import {
+  apiListShares,
+  apiSharedWithMe,
+  apiCreateShare,
+  apiRevokeShare,
+} from '@/services/api/shares';
+import {
+  apiListTrash,
+  apiEmptyTrash,
+  apiPurgeFile,
+  apiPurgeFolder,
+} from '@/services/api/trash';
+import {
+  mergeFolderListing,
+  mapTrashListing,
+  replaceTrashInCache,
+} from '@/services/api/listing';
+import {
+  buildPath,
+  mapApiFile,
+  mapApiFolder,
+  mapApiShare,
+  mapIncomingShare,
+} from '@/services/api/mappers';
+import { ApiError } from '@/services/api/client';
 
 function lastExtensionLower(filename: string): string | null {
   const i = filename.lastIndexOf('.');
   if (i <= 0) return null;
   return filename.slice(i).toLowerCase();
-}
-
-function randomShareToken(): string {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  let s = '';
-  for (let i = 0; i < 10; i++) s += chars[Math.floor(Math.random() * chars.length)];
-  return s;
 }
 
 /** Local pick ou métadonnées API ; avec `uri`, fichier prévisualisable hors ligne */
@@ -61,11 +91,9 @@ interface FilesContextType {
   toggleSelection: (fileId: string) => void;
   createFolder: (name: string, parentId: string | null) => Promise<FileItem>;
   renameItem: (itemId: string, newName: string) => Promise<void>;
-  /** Met à la corbeille (suppression douce) */
   softDeleteItems: (itemIds: string[]) => Promise<void>;
   moveItems: (itemIds: string[], targetFolderId: string | null) => Promise<void>;
   uploadFile: (file: UploadFileInput, parentId: string | null) => Promise<FileItem>;
-  /** Upload avec barre de progression simulée (remplacer par progression réelle XHR côté API) */
   enqueueUploadWithProgress: (
     file: UploadFileInput,
     parentId: string | null,
@@ -75,7 +103,11 @@ interface FilesContextType {
   refreshShares: () => Promise<void>;
   cancelUploadJob: (jobId: string) => void;
   getFileById: (fileId: string) => FileItem | undefined;
+  ensureFileInIndex: (fileId: string) => Promise<FileItem | undefined>;
+  /** Local filter on cached files (instant). */
   searchFiles: (query: string) => FileItem[];
+  /** Server search (`GET /search`). */
+  fetchSearchResults: (query: string) => Promise<FileItem[]>;
   getTrashRoots: () => FileItem[];
   restoreTrashGroup: (trashRootId: string) => Promise<void>;
   permanentlyDeleteTrashGroup: (trashRootId: string) => Promise<void>;
@@ -87,21 +119,20 @@ interface FilesContextType {
     targetType: 'file' | 'folder';
     password?: string | null;
     expiresInDays: number | null;
-  }) => ShareLink;
+  }) => Promise<ShareLink>;
   revokePublicShareLink: (linkId: string) => void;
-  /** Dossier visible à la racine du destinataire après acceptation (démo : message seulement). */
   inviteUserToFolder: (folderId: string, recipientEmail: string) => void;
 }
 
 const FilesContext = createContext<FilesContextType | undefined>(undefined);
 
-function randomGroupId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
-}
-
 const UPLOAD_CANCELLED = 'UPLOAD_CANCELLED';
 
-/** Copie les `content://` (SAF) vers un `file://` persistant pour prévisualisation et accès stable. */
+function showApiError(err: unknown, fallback: string) {
+  const message = err instanceof ApiError ? err.message : fallback;
+  Alert.alert('Erreur', message);
+}
+
 async function persistUploadedLocalUri(
   uri: string | undefined,
   fileName: string,
@@ -121,34 +152,56 @@ async function persistUploadedLocalUri(
   }
 }
 
-function uniqueCopyName(originalName: string, parentId: string | null, all: FileItem[]): string {
-  const dot = originalName.lastIndexOf('.');
-  const hasExt =
-    dot > 0 &&
-    dot < originalName.length - 1 &&
-    /^\.[^./\\]+$/.test(originalName.slice(dot));
-  const base = hasExt ? originalName.slice(0, dot) : originalName;
-  const ext = hasExt ? originalName.slice(dot) : '';
-  let n = 0;
-  let candidate = `${base} (copie)${ext}`;
-  const taken = (name: string) =>
-    all.some((f) => isActive(f) && f.parentId === parentId && f.name === name);
-  while (taken(candidate)) {
-    n += 1;
-    candidate = `${base} (copie ${n})${ext}`;
-  }
-  return candidate;
-}
-
 export function FilesProvider({ children }: { children: ReactNode }) {
-  const [files, setFiles] = useState<FileItem[]>(mockFiles);
-  const [shareLinks, setShareLinks] = useState<ShareLink[]>(() => [...mockSharedLinks]);
-  const [incomingShares] = useState<IncomingShareEntry[]>(() => [...mockIncomingShares]);
+  const { isAuthenticated, isInitializing, refreshSession } = useAuth();
+  const [files, setFiles] = useState<FileItem[]>([]);
+  const [shareLinks, setShareLinks] = useState<ShareLink[]>([]);
+  const [incomingShares, setIncomingShares] = useState<IncomingShareEntry[]>([]);
   const [currentFolder, setCurrentFolder] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [uploadJobs, setUploadJobs] = useState<UploadJobView[]>([]);
   const uploadAbortRef = useRef<Record<string, boolean>>({});
+  const filesRef = useRef(files);
+  filesRef.current = files;
+
+  const fetchListing = useCallback(async (folderId: string | null) => {
+    const listing = folderId ? await apiListFolder(folderId) : await apiListRoot();
+    setFiles((prev) => mergeFolderListing(prev, listing));
+    return listing;
+  }, []);
+
+  const loadTrash = useCallback(async () => {
+    const trash = await apiListTrash();
+    const trashed = mapTrashListing(trash);
+    setFiles((prev) => replaceTrashInCache(prev, trashed));
+  }, []);
+
+  useEffect(() => {
+    if (isInitializing) return;
+    if (!isAuthenticated) {
+      setFiles([]);
+      setShareLinks([]);
+      setIncomingShares([]);
+      setCurrentFolder(null);
+      setSelectedFiles([]);
+      return;
+    }
+    void (async () => {
+      try {
+        setIsLoading(true);
+        await fetchListing(null);
+        await loadTrash();
+        const [links, incoming] = await Promise.all([apiListShares(), apiSharedWithMe()]);
+        setShareLinks(links.map(mapApiShare));
+        setIncomingShares(incoming.map(mapIncomingShare));
+      } catch (err) {
+        showApiError(err, 'Impossible de charger vos fichiers.');
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+  }, [isAuthenticated, isInitializing, fetchListing, loadTrash]);
 
   const getBreadcrumbs = (): { id: string | null; name: string }[] => {
     const crumbs: { id: string | null; name: string }[] = [{ id: null, name: 'Accueil' }];
@@ -189,9 +242,7 @@ export function FilesProvider({ children }: { children: ReactNode }) {
     setSelectedFiles((prev) => prev.filter((id) => id !== fileId));
   };
 
-  const clearSelection = () => {
-    setSelectedFiles([]);
-  };
+  const clearSelection = () => setSelectedFiles([]);
 
   const toggleSelection = (fileId: string) => {
     if (selectedFiles.includes(fileId)) deselectFile(fileId);
@@ -200,260 +251,157 @@ export function FilesProvider({ children }: { children: ReactNode }) {
 
   const createFolder = async (name: string, parentId: string | null): Promise<FileItem> => {
     const trimmed = name.trim();
-    setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 400));
-
-    let created: FileItem | null = null;
-    setFiles((prev) => {
-      const dup = prev.some(
-        (f) => isActive(f) && f.parentId === parentId && f.name === trimmed,
-      );
-      if (dup || !trimmed) return prev;
-      const parentPath = parentId
-        ? prev.find((f) => f.id === parentId && isActive(f))?.path || ''
-        : '';
-      const path = `${parentPath}/${trimmed}`.replace(/\/+/g, '/') || `/${trimmed}`;
-      const newFolder: FileItem = {
-        id: Date.now().toString(),
-        name: trimmed,
-        type: 'folder',
-        createdAt: new Date(),
-        modifiedAt: new Date(),
-        parentId,
-        path,
-      };
-      created = newFolder;
-      return [...prev, newFolder];
-    });
-
-    setIsLoading(false);
-    if (!created) {
-      Alert.alert(
-        'Dossier',
-        trimmed
-          ? 'Un dossier du même nom existe déjà ici.'
-          : 'Le nom du dossier ne peut pas être vide.',
-      );
+    if (!trimmed) {
+      Alert.alert('Dossier', 'Le nom du dossier ne peut pas être vide.');
       throw new Error('createFolder failed');
     }
-    return created;
+    setIsLoading(true);
+    try {
+      const apiFolder = await apiCreateFolder(trimmed, parentId);
+      const parentPath = parentId
+        ? filesRef.current.find((f) => f.id === parentId && isActive(f))?.path ?? ''
+        : '';
+      const item = mapApiFolder(apiFolder, buildPath(parentPath || null, apiFolder.name));
+      setFiles((prev) => [...prev.filter((f) => f.id !== item.id), item]);
+      return item;
+    } catch (err) {
+      showApiError(err, 'Impossible de créer le dossier.');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const renameItem = async (itemId: string, newName: string) => {
     const trimmed = newName.trim();
     if (!trimmed) return;
 
-    setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 250));
+    const item = filesRef.current.find((f) => f.id === itemId && isActive(f));
+    if (!item || item.name === trimmed) return;
 
-    let duplicateBlocked = false;
-    let extensionBlocked = false;
-
-    setFiles((prev) => {
-      const item = prev.find((f) => f.id === itemId && isActive(f));
-      if (!item) return prev;
-      if (item.name === trimmed) return prev;
-
-      if (item.type === 'file') {
-        const origExt = lastExtensionLower(item.name);
-        if (origExt) {
-          const nextExt = lastExtensionLower(trimmed);
-          if (nextExt !== origExt) {
-            extensionBlocked = true;
-            return prev;
-          }
-        }
+    if (item.type === 'file') {
+      const origExt = lastExtensionLower(item.name);
+      if (origExt && lastExtensionLower(trimmed) !== origExt) {
+        Alert.alert(
+          'Extension obligatoire',
+          'Vous ne pouvez pas modifier ou supprimer l’extension de ce fichier.',
+        );
+        return;
       }
-
-      const duplicate = prev.some(
-        (f) =>
-          isActive(f) &&
-          f.id !== itemId &&
-          f.parentId === item.parentId &&
-          f.name === trimmed,
-      );
-      if (duplicate) {
-        duplicateBlocked = true;
-        return prev;
-      }
-
-      const parentPath = item.parentId
-        ? prev.find((f) => f.id === item.parentId && isActive(f))?.path ?? ''
-        : '';
-      const newBasePath = parentPath ? `${parentPath}/${trimmed}` : `/${trimmed}`;
-      const oldPath = item.path;
-
-      return prev.map((f) => {
-        if (f.id === itemId) {
-          return { ...f, name: trimmed, path: newBasePath, modifiedAt: new Date() };
-        }
-        if (f.path.startsWith(`${oldPath}/`)) {
-          return { ...f, path: `${newBasePath}${f.path.slice(oldPath.length)}` };
-        }
-        return f;
-      });
-    });
-
-    setIsLoading(false);
-    if (duplicateBlocked) {
-      Alert.alert(
-        'Nom déjà utilisé',
-        'Un autre fichier ou dossier porte déjà ce nom dans ce dossier.',
-      );
     }
-    if (extensionBlocked) {
-      Alert.alert(
-        'Extension obligatoire',
-        'Vous ne pouvez pas modifier ou supprimer l’extension de ce fichier.',
-      );
+
+    setIsLoading(true);
+    try {
+      if (item.type === 'folder') {
+        await apiUpdateFolder(itemId, { name: trimmed });
+      } else {
+        await apiUpdateFile(itemId, { name: trimmed });
+      }
+      await fetchListing(currentFolder);
+    } catch (err) {
+      showApiError(err, 'Impossible de renommer cet élément.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const softDeleteItems = async (itemIds: string[]) => {
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 350));
-    const groupId = randomGroupId();
-    const now = new Date();
-
-    setFiles((prev) => {
-      const expanded = new Set<string>();
+    try {
       for (const id of itemIds) {
-        if (prev.some((f) => f.id === id && isActive(f))) {
-          collectSubtreeIds(id, prev).forEach((sid) => expanded.add(sid));
-        }
+        const node = filesRef.current.find((f) => f.id === id && isActive(f));
+        if (!node) continue;
+        if (node.type === 'folder') await apiTrashFolder(id);
+        else await apiTrashFile(id);
       }
-      return prev.map((f) =>
-        expanded.has(f.id) && isActive(f)
-          ? { ...f, deletedAt: now, deleteGroupId: groupId }
-          : f,
-      );
-    });
-    setSelectedFiles([]);
-    setIsLoading(false);
+      await fetchListing(currentFolder);
+      await loadTrash();
+      void refreshSession().catch(() => {});
+      setSelectedFiles([]);
+    } catch (err) {
+      showApiError(err, 'Impossible de mettre à la corbeille.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const moveItems = async (itemIds: string[], targetFolderId: string | null) => {
-    let invalidTarget = false;
-    let dupName = false;
-
-    setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 250));
-
-    setFiles((prev) => {
-      let next = [...prev];
-      const ex = excludedMoveTargetFolderIds(itemIds, next);
-      if (targetFolderId && ex.has(targetFolderId)) {
-        invalidTarget = true;
-        return prev;
-      }
-      if (targetFolderId) {
-        const t = next.find((f) => f.id === targetFolderId && isActive(f));
-        if (!t || t.type !== 'folder') {
-          invalidTarget = true;
-          return prev;
-        }
-      }
-
-      for (const moveId of itemIds) {
-        const node = next.find((f) => f.id === moveId && isActive(f));
-        if (!node) continue;
-        const oldPath = node.path;
-        const newParentId = targetFolderId;
-        if (
-          next.some(
-            (f) =>
-              isActive(f) &&
-              f.id !== moveId &&
-              f.parentId === newParentId &&
-              f.name === node.name,
-          )
-        ) {
-          dupName = true;
-          return prev;
-        }
-        const newPath = buildPathForItem(newParentId, node.name, next);
-        const idSet = collectSubtreeIds(moveId, next);
-        next = next.map((f) => {
-          if (!idSet.has(f.id) || !isActive(f)) return f;
-          if (f.id === moveId) {
-            return { ...f, parentId: newParentId, path: newPath, modifiedAt: new Date() };
-          }
-          const suffix =
-            f.path.length > oldPath.length && f.path.startsWith(`${oldPath}/`)
-              ? f.path.slice(oldPath.length)
-              : `/${f.name}`;
-          return { ...f, path: `${newPath}${suffix}`, modifiedAt: new Date() };
-        });
-      }
-      return next;
-    });
-
-    setSelectedFiles([]);
-    setIsLoading(false);
-    if (invalidTarget) {
+    const ex = excludedMoveTargetFolderIds(itemIds, filesRef.current);
+    if (targetFolderId && ex.has(targetFolderId)) {
       Alert.alert(
         'Déplacement impossible',
         'Vous ne pouvez pas déplacer un dossier dans lui-même ni dans un de ses sous-dossiers.',
       );
+      return;
     }
-    if (dupName) {
-      Alert.alert('Conflit', 'Un élément du même nom existe déjà dans le dossier cible.');
+
+    setIsLoading(true);
+    try {
+      for (const id of itemIds) {
+        const node = filesRef.current.find((f) => f.id === id && isActive(f));
+        if (!node) continue;
+        if (node.type === 'folder') {
+          await apiUpdateFolder(id, { parent_id: targetFolderId });
+        } else {
+          await apiUpdateFile(id, { folder_id: targetFolderId });
+        }
+      }
+      await fetchListing(currentFolder);
+      setSelectedFiles([]);
+    } catch (err) {
+      showApiError(err, 'Impossible de déplacer cet élément.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const uploadFileCore = async (
     file: UploadFileInput,
     parentId: string | null,
-    cancelJobId?: string | null,
+    jobId?: string,
   ): Promise<FileItem> => {
-    const throwIfCancelled = () => {
-      if (cancelJobId && uploadAbortRef.current[cancelJobId]) {
-        throw new Error(UPLOAD_CANCELLED);
-      }
+    if (!file.uri) {
+      throw new Error('Missing file URI');
+    }
+    const localUri =
+      (await persistUploadedLocalUri(file.uri, file.name || 'fichier')) ?? file.uri;
+
+    const apiFile = await apiUploadFileWithProgress(
+      localUri,
+      file.name || 'Nouveau fichier',
+      file.mimeType || 'application/octet-stream',
+      parentId,
+      jobId
+        ? (pct) => {
+            setUploadJobs((jobs) =>
+              jobs.map((j) => (j.id === jobId ? { ...j, progress: pct } : j)),
+            );
+          }
+        : undefined,
+      jobId ? () => !!uploadAbortRef.current[jobId] : undefined,
+    );
+
+    if (jobId && uploadAbortRef.current[jobId]) {
+      throw new Error(UPLOAD_CANCELLED);
+    }
+
+    const parentPath = parentId
+      ? filesRef.current.find((f) => f.id === parentId && isActive(f))?.path ?? ''
+      : '';
+    const mapped = mapApiFile(apiFile, buildPath(parentPath || null, apiFile.name));
+    const mime = mapped.mimeType || '';
+    const withLocal: FileItem = {
+      ...mapped,
+      ...(localUri
+        ? {
+            localUri,
+            ...(mime.startsWith('image/') ? { thumbnail: localUri } : {}),
+          }
+        : {}),
     };
-
-    const deadline = Date.now() + 450;
-    while (Date.now() < deadline) {
-      throwIfCancelled();
-      await new Promise((r) => setTimeout(r, 50));
-    }
-    throwIfCancelled();
-
-    let localUri = file.uri;
-    if (localUri) {
-      localUri = (await persistUploadedLocalUri(localUri, file.name || 'fichier')) ?? localUri;
-    }
-    throwIfCancelled();
-
-    let created: FileItem | null = null;
-    setFiles((prev) => {
-      const parentPath = parentId
-        ? prev.find((f) => f.id === parentId && isActive(f))?.path || ''
-        : '';
-      const name = file.name || 'Nouveau fichier';
-      const mimeType = file.mimeType || 'application/octet-stream';
-      const newFile: FileItem = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-        name,
-        type: 'file',
-        mimeType,
-        size: file.size ?? 0,
-        createdAt: new Date(),
-        modifiedAt: new Date(),
-        parentId,
-        path: `${parentPath}/${name}`.replace(/\/+/g, '/'),
-        ...(localUri
-          ? {
-              localUri,
-              ...(mimeType.startsWith('image/') ? { thumbnail: localUri } : {}),
-            }
-          : {}),
-      };
-      created = newFile;
-      return [...prev, newFile];
-    });
-    if (!created) throw new Error('upload failed');
-    return created;
+    setFiles((prev) => [...prev.filter((f) => f.id !== withLocal.id), withLocal]);
+    void refreshSession().catch(() => {});
+    return withLocal;
   };
 
   const uploadFile = async (
@@ -468,12 +416,6 @@ export function FilesProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const bumpProgress = (jobId: string, value: number) => {
-    setUploadJobs((jobs) =>
-      jobs.map((j) => (j.id === jobId ? { ...j, progress: value } : j)),
-    );
-  };
-
   const enqueueUploadWithProgress = useCallback(
     async (file: UploadFileInput, parentId: string | null): Promise<FileItem | null> => {
       const jobId = `up-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -483,32 +425,13 @@ export function FilesProvider({ children }: { children: ReactNode }) {
         { id: jobId, name: file.name || 'Fichier', progress: 0, status: 'uploading' },
       ]);
 
-      const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
       try {
-        for (let p = 5; p <= 88; p += 9) {
-          if (uploadAbortRef.current[jobId]) {
-            delete uploadAbortRef.current[jobId];
-            setUploadJobs((jobs) => jobs.filter((x) => x.id !== jobId));
-            return null;
-          }
-          bumpProgress(jobId, Math.min(p, 88));
-          await sleep(120);
-        }
-        if (uploadAbortRef.current[jobId]) {
-          delete uploadAbortRef.current[jobId];
-          setUploadJobs((jobs) => jobs.filter((x) => x.id !== jobId));
-          return null;
-        }
         const created = await uploadFileCore(file, parentId, jobId);
         if (uploadAbortRef.current[jobId]) {
-          const id = created.id;
           delete uploadAbortRef.current[jobId];
-          setFiles((prev) => prev.filter((f) => f.id !== id));
           setUploadJobs((jobs) => jobs.filter((x) => x.id !== jobId));
           return null;
         }
-        bumpProgress(jobId, 100);
         setUploadJobs((jobs) =>
           jobs.map((j) =>
             j.id === jobId ? { ...j, progress: 100, status: 'completed' as const } : j,
@@ -526,6 +449,7 @@ export function FilesProvider({ children }: { children: ReactNode }) {
           jobs.map((j) => (j.id === jobId ? { ...j, status: 'failed' as const } : j)),
         );
         delete uploadAbortRef.current[jobId];
+        showApiError(e, 'Échec de l’import.');
         return null;
       }
     },
@@ -537,14 +461,27 @@ export function FilesProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshCurrentFolder = useCallback(async () => {
+    if (!isAuthenticated) return;
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 150));
-    setIsLoading(false);
-  }, [currentFolder]);
+    try {
+      await fetchListing(currentFolder);
+    } catch (err) {
+      showApiError(err, 'Impossible d’actualiser le dossier.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentFolder, fetchListing, isAuthenticated]);
 
   const refreshShares = useCallback(async () => {
-    await new Promise((r) => setTimeout(r, 100));
-  }, []);
+    if (!isAuthenticated) return;
+    try {
+      const [links, incoming] = await Promise.all([apiListShares(), apiSharedWithMe()]);
+      setShareLinks(links.map(mapApiShare));
+      setIncomingShares(incoming.map(mapIncomingShare));
+    } catch (err) {
+      showApiError(err, 'Impossible de charger les partages.');
+    }
+  }, [isAuthenticated]);
 
   const cancelUploadJob = (jobId: string) => {
     uploadAbortRef.current[jobId] = true;
@@ -555,146 +492,122 @@ export function FilesProvider({ children }: { children: ReactNode }) {
     return files.find((f) => f.id === fileId && isActive(f));
   };
 
-  const searchFiles = useCallback((query: string): FileItem[] => {
-    const raw = query.trim().toLowerCase();
+  const ensureFileInIndex = useCallback(async (fileId: string): Promise<FileItem | undefined> => {
+    const existing = filesRef.current.find((f) => f.id === fileId && isActive(f));
+    if (existing) return existing;
+    try {
+      const apiFile = await apiGetFile(fileId);
+      const parentPath = apiFile.folder_id
+        ? filesRef.current.find((f) => f.id === apiFile.folder_id)?.path ?? ''
+        : '';
+      const item = mapApiFile(apiFile, buildPath(parentPath || null, apiFile.name));
+      setFiles((prev) => [...prev.filter((f) => f.id !== item.id), item]);
+      return item;
+    } catch {
+      return undefined;
+    }
+  }, []);
+
+  const searchFiles = useCallback(
+    (query: string): FileItem[] => {
+      const raw = query.trim().toLowerCase();
+      if (raw.length < 2) return [];
+      return filesRef.current.filter((f) => {
+        if (!isActive(f)) return false;
+        const name = f.name.toLowerCase();
+        const path = f.path.toLowerCase();
+        if (name.includes(raw) || path.includes(raw)) return true;
+        const extWithDot = lastExtensionLower(f.name);
+        if (extWithDot) {
+          const extNoDot = extWithDot.slice(1);
+          if (extNoDot.includes(raw) || raw === extNoDot || raw === extWithDot) return true;
+          if (raw.startsWith('.') && extWithDot === raw) return true;
+        }
+        return false;
+      });
+    },
+    [files],
+  );
+
+  const fetchSearchResults = useCallback(async (query: string): Promise<FileItem[]> => {
+    const raw = query.trim();
     if (raw.length < 2) return [];
-    return files.filter((f) => {
-      if (!isActive(f)) return false;
-      const name = f.name.toLowerCase();
-      const path = f.path.toLowerCase();
-      if (name.includes(raw) || path.includes(raw)) return true;
-      const extWithDot = lastExtensionLower(f.name);
-      if (extWithDot) {
-        const extNoDot = extWithDot.slice(1);
-        if (extNoDot.includes(raw) || raw === extNoDot || raw === extWithDot) return true;
-        if (raw.startsWith('.') && extWithDot === raw) return true;
-      }
-      return false;
+    const rows = await apiSearch({ q: raw });
+    return rows.map((f) => {
+      const parentPath = f.folder_id
+        ? filesRef.current.find((x) => x.id === f.folder_id)?.path ?? ''
+        : '';
+      return mapApiFile(f, buildPath(parentPath || null, f.name));
     });
-  }, [files]);
+  }, []);
 
   const getTrashRoots = useCallback(() => trashRootItems(files), [files]);
 
   const restoreTrashGroup = async (trashRootId: string) => {
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 250));
-    setFiles((prev) => {
-      const root = prev.find((f) => f.id === trashRootId);
-      if (!root?.deleteGroupId) return prev;
-      const gid = root.deleteGroupId;
-      return prev.map((f) => {
-        if (f.deleteGroupId !== gid) return f;
-        const parentOk =
-          !f.parentId ||
-          prev.some(
-            (p) =>
-              p.id === f.parentId &&
-              (isActive(p) || p.deleteGroupId === gid),
-          );
-        let next: FileItem = { ...f, deletedAt: undefined, deleteGroupId: undefined };
-        if (!parentOk) {
-          next = {
-            ...next,
-            parentId: null,
-            path: buildPathForItem(null, next.name, prev),
-            modifiedAt: new Date(),
-          };
-        }
-        return next;
-      });
-    });
-    setIsLoading(false);
+    try {
+      const root = filesRef.current.find((f) => f.id === trashRootId);
+      if (!root) return;
+      if (root.type === 'folder') await apiRestoreFolder(trashRootId);
+      else await apiRestoreFile(trashRootId);
+      await Promise.all([fetchListing(currentFolder), loadTrash()]);
+    } catch (err) {
+      showApiError(err, 'Impossible de restaurer.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const permanentlyDeleteTrashGroup = async (trashRootId: string) => {
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 200));
-    setFiles((prev) => {
-      const root = prev.find((f) => f.id === trashRootId);
-      if (!root?.deleteGroupId) return prev;
-      const gid = root.deleteGroupId;
-      return prev.filter((f) => f.deleteGroupId !== gid);
-    });
-    setIsLoading(false);
+    try {
+      const root = filesRef.current.find((f) => f.id === trashRootId);
+      if (!root) return;
+      if (root.type === 'folder') await apiPurgeFolder(trashRootId);
+      else await apiPurgeFile(trashRootId);
+      await loadTrash();
+    } catch (err) {
+      showApiError(err, 'Impossible de supprimer définitivement.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const emptyTrash = async () => {
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 300));
-    setFiles((prev) => prev.filter((f) => !f.deletedAt));
-    setIsLoading(false);
-  };
-
-  const duplicateItem = async (itemId: string) => {
-    setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 300));
-    setFiles((prev) => {
-      const item = prev.find((f) => f.id === itemId && isActive(f));
-      if (!item) return prev;
-      const ids = collectSubtreeIds(item.id, prev);
-      const sorted = [...ids]
-        .map((id) => prev.find((f) => f.id === id)!)
-        .sort((a, b) => a.path.length - b.path.length);
-
-      const idMap = new Map<string, string>();
-      const additions: FileItem[] = [];
-      let merged: FileItem[] = [...prev];
-
-      for (let i = 0; i < sorted.length; i++) {
-        const node = sorted[i];
-        const newId = `${Date.now()}-${i}-${Math.random().toString(36).slice(2, 11)}`;
-        idMap.set(node.id, newId);
-        const newParentId =
-          node.id === item.id ? item.parentId : idMap.get(node.parentId!)!;
-        const newName =
-          node.id === item.id ? uniqueCopyName(item.name, item.parentId, merged) : node.name;
-        const path = buildPathForItem(newParentId, newName, merged);
-        const clone: FileItem = {
-          ...node,
-          id: newId,
-          parentId: newParentId,
-          name: newName,
-          path,
-          createdAt: new Date(),
-          modifiedAt: new Date(),
-          deletedAt: undefined,
-          deleteGroupId: undefined,
-        };
-        additions.push(clone);
-        merged = [...merged, clone];
-      }
-      return merged;
-    });
-    setIsLoading(false);
+    try {
+      await apiEmptyTrash();
+      setFiles((prev) => prev.filter((f) => !f.deletedAt));
+    } catch (err) {
+      showApiError(err, 'Impossible de vider la corbeille.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const createPublicShareLink = useCallback(
-    (opts: {
+    async (opts: {
       targetId: string;
       targetType: 'file' | 'folder';
       password?: string | null;
       expiresInDays: number | null;
-    }): ShareLink => {
-      const token = randomShareToken();
-      const url = `https://supfile.app/s/${token}`;
-      let expiresAt: Date | undefined;
+    }): Promise<ShareLink> => {
+      let expires_at: string | null = null;
       if (opts.expiresInDays != null && opts.expiresInDays > 0) {
         const d = new Date();
         d.setDate(d.getDate() + opts.expiresInDays);
-        expiresAt = d;
+        expires_at = d.toISOString();
       }
       const pwd = opts.password?.trim();
-      const link: ShareLink = {
-        id: `link-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        targetId: opts.targetId,
-        targetType: opts.targetType,
-        token,
-        url,
+      const body = {
+        ...(opts.targetType === 'file'
+          ? { file_id: opts.targetId }
+          : { folder_id: opts.targetId }),
+        expires_at,
         ...(pwd ? { password: pwd } : {}),
-        ...(expiresAt ? { expiresAt } : {}),
-        createdAt: new Date(),
-        downloads: 0,
       };
+      const created = await apiCreateShare(body);
+      const link = mapApiShare(created);
       setShareLinks((prev) => [link, ...prev]);
       return link;
     },
@@ -702,28 +615,39 @@ export function FilesProvider({ children }: { children: ReactNode }) {
   );
 
   const revokePublicShareLink = useCallback((linkId: string) => {
-    setShareLinks((prev) => prev.filter((l) => l.id !== linkId));
+    void (async () => {
+      try {
+        await apiRevokeShare(linkId);
+        setShareLinks((prev) => prev.filter((l) => l.id !== linkId));
+      } catch (err) {
+        showApiError(err, 'Impossible de supprimer le lien.');
+      }
+    })();
   }, []);
 
-  const inviteUserToFolder = useCallback(
-    (folderId: string, recipientEmail: string) => {
-      const trimmed = recipientEmail.trim();
-      if (!trimmed.includes('@')) {
-        Alert.alert('E-mail invalide', 'Saisissez une adresse e-mail valide.');
-        return;
+  const inviteUserToFolder = useCallback((folderId: string, recipientEmail: string) => {
+    const trimmed = recipientEmail.trim();
+    if (!trimmed.includes('@')) {
+      Alert.alert('E-mail invalide', 'Saisissez une adresse e-mail valide.');
+      return;
+    }
+    void (async () => {
+      try {
+        await apiInviteFolderMember(folderId, trimmed);
+        const folder = filesRef.current.find(
+          (f) => f.id === folderId && isActive(f) && f.type === 'folder',
+        );
+        Alert.alert(
+          'Invitation envoyée',
+          folder
+            ? `Le dossier « ${folder.name} » a été partagé avec ${trimmed}.`
+            : `Invitation envoyée à ${trimmed}.`,
+        );
+      } catch (err) {
+        showApiError(err, 'Impossible d’envoyer l’invitation.');
       }
-      const folder = files.find((f) => f.id === folderId && isActive(f) && f.type === 'folder');
-      if (!folder) {
-        Alert.alert('Erreur', 'Dossier introuvable.');
-        return;
-      }
-      Alert.alert(
-        'Invitation envoyée',
-        `Le dossier « ${folder.name} » sera proposé à la racine de l’espace de ${trimmed} lorsque ce contact acceptera l’invitation sur la plateforme.`,
-      );
-    },
-    [files],
-  );
+    })();
+  }, []);
 
   return (
     <FilesContext.Provider
@@ -751,7 +675,9 @@ export function FilesProvider({ children }: { children: ReactNode }) {
         refreshShares,
         cancelUploadJob,
         getFileById,
+        ensureFileInIndex,
         searchFiles,
+        fetchSearchResults,
         getTrashRoots,
         restoreTrashGroup,
         permanentlyDeleteTrashGroup,

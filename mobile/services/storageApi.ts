@@ -1,8 +1,6 @@
-/**
- * Point d’extension API : en production, appelez votre backend qui génère une archive ZIP
- * (ex. `GET /v1/folders/:id/archive` → URL signée temporaire).
- * Tant que cette fonction renvoie `null`, l’app construit le ZIP côté client (fichiers accessibles).
- */
-export async function fetchServerFolderZipUrl(_folderId: string): Promise<string | null> {
-  return null;
+import { folderZipUrl } from '@/services/api/client';
+
+/** Server-built ZIP (`GET /folders/:id/zip`) — requires auth on download. */
+export async function fetchServerFolderZipUrl(folderId: string): Promise<string | null> {
+  return folderZipUrl(folderId);
 }

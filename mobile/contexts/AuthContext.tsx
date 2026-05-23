@@ -41,6 +41,8 @@ interface AuthContextType {
     currentPassword: string,
     newPassword: string,
   ) => Promise<{ ok: boolean; message?: string }>;
+  /** Reload profile (quota, avatar, etc.) from `GET /auth/me`. */
+  refreshSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -193,6 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         updateProfile,
         changePassword,
+        refreshSession: refreshUser,
       }}
     >
       {children}

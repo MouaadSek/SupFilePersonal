@@ -5,6 +5,7 @@ import { EncodingType } from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import type { FileItem } from '@/types';
 import { isActive } from '@/utils/fileTree';
+import { getAuthToken } from '@/services/api/client';
 import { fetchServerFolderZipUrl } from '@/services/storageApi';
 import { effectiveMimeTypeForFile } from '@/utils/mimeFromFilename';
 
@@ -115,7 +116,10 @@ export async function shareFolderZipArchive(folder: FileItem, allFiles: FileItem
   if (serverUrl) {
     try {
       const dest = `${baseDir}archive_${folder.id}_${Date.now()}.zip`;
-      const { uri } = await FileSystem.downloadAsync(serverUrl, dest);
+      const token = getAuthToken();
+      const { uri } = await FileSystem.downloadAsync(serverUrl, dest, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       const available = await Sharing.isAvailableAsync();
       if (!available) {
         Alert.alert('Partage', 'Le partage de fichiers n’est pas disponible sur cet appareil.');

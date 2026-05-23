@@ -84,14 +84,20 @@ export function ShareCollaborationModal({ visible, onClose, item }: ShareCollabo
       Alert.alert('Mot de passe', 'Saisissez un mot de passe ou désactivez la protection.');
       return;
     }
-    const link = createPublicShareLink({
-      targetId: item.id,
-      targetType: item.type === 'folder' ? 'folder' : 'file',
-      expiresInDays: expiryDays,
-      password: passwordEnabled ? password : null,
-    });
-    setLastCreated(link);
-    void copyUrl(link.url);
+    void (async () => {
+      try {
+        const link = await createPublicShareLink({
+          targetId: item.id,
+          targetType: item.type === 'folder' ? 'folder' : 'file',
+          expiresInDays: expiryDays,
+          password: passwordEnabled ? password : null,
+        });
+        setLastCreated(link);
+        await copyUrl(link.url);
+      } catch {
+        Alert.alert('Erreur', 'Impossible de créer le lien de partage.');
+      }
+    })();
   };
 
   const handleInviteFolder = () => {
