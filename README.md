@@ -10,10 +10,10 @@ Cloud storage client for the SUPFile API.
 
 ## Backend API
 
-The server lives at `~/Downloads/supfileDev-mouaad/server` (or your clone of that folder).
+The API lives in a separate clone (e.g. `~/server` next to this repo).
 
 ```bash
-cd /path/to/supfileDev-mouaad/server
+cd ~/server
 cp .env.example .env
 # Edit .env: DB_PASSWORD, JWT_SECRET (required)
 
