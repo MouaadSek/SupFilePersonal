@@ -1,15 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { type User } from '@/lib/api';
+import api, { type User } from '@/lib/api';
 import {
-  IconDashboard, IconFolder, IconShare, IconTrash,
+  IconDashboard, IconFolder, IconFile, IconShare, IconTrash,
   IconSettings, IconLogout,
 } from './icons';
+
+interface Suggestion {
+  id: string;
+  name: string;
+  type: 'file' | 'folder';
+  size?: number;
+  folder_id?: string | null;
+}
 
 interface Props {
   children: ReactNode;
@@ -34,14 +42,86 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const [searchVal, setSearchVal] = useState('');
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [showSuggest, setShowSuggest] = useState(false);
+  const [suggestIdx, setSuggestIdx] = useState(-1);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  const searchWrapRef = useRef<HTMLDivElement>(null);
   const quotaUsed  = Number(user?.quota_used  ?? 0);
   const quotaTotal = Number(user?.quota_total ?? 32212254720);
   const pct = Math.min(100, Math.round((quotaUsed / quotaTotal) * 100));
 
+  useEffect(() => {
+    const q = searchVal.trim();
+    if (q.length < 2) {
+      setSuggestions([]);
+      setShowSuggest(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      api.get(`/search?q=${encodeURIComponent(q)}`)
+        .then((res) => {
+          const folders: Suggestion[] = (res.data.folders ?? []).slice(0, 3).map(
+            (f: { id: string; name: string }) => ({ id: f.id, name: f.name, type: 'folder' as const }),
+          );
+          const files: Suggestion[] = (res.data.files ?? []).slice(0, 3).map(
+            (f: { id: string; name: string; size: number; folder_id: string | null }) => ({
+              id: f.id, name: f.name, type: 'file' as const, size: f.size, folder_id: f.folder_id,
+            }),
+          );
+          setSuggestions([...folders, ...files].slice(0, 6));
+          setShowSuggest(true);
+          setSuggestIdx(-1);
+        })
+        .catch(() => {});
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchVal]);
+
+  useEffect(() => {
+    if (!showSuggest) return;
+    function handleOutside(e: MouseEvent) {
+      if (searchWrapRef.current && !searchWrapRef.current.contains(e.target as Node)) {
+        setShowSuggest(false);
+        setSuggestIdx(-1);
+      }
+    }
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [showSuggest]);
+
+  function navigateToSuggestion(item: Suggestion) {
+    setShowSuggest(false);
+    setSuggestIdx(-1);
+    setSearchVal('');
+    if (item.type === 'folder') {
+      router.push(`/files?folder=${item.id}`);
+    } else {
+      router.push(item.folder_id ? `/files?folder=${item.folder_id}` : '/files');
+    }
+  }
+
+  function handleSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Escape') {
+      setShowSuggest(false);
+      setSuggestIdx(-1);
+    } else if (e.key === 'ArrowDown' && showSuggest) {
+      e.preventDefault();
+      setSuggestIdx((i) => Math.min(i + 1, suggestions.length - 1));
+    } else if (e.key === 'ArrowUp' && showSuggest) {
+      e.preventDefault();
+      setSuggestIdx((i) => Math.max(i - 1, -1));
+    } else if (e.key === 'Enter' && showSuggest && suggestIdx >= 0) {
+      e.preventDefault();
+      navigateToSuggestion(suggestions[suggestIdx]);
+    }
+  }
+
   function handleSearchSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setShowSuggest(false);
+    setSuggestIdx(-1);
     if (searchVal.trim()) router.push(`/files?q=${encodeURIComponent(searchVal.trim())}`);
   }
 
@@ -98,34 +178,6 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
           <p className="text-xs text-slate-mid dark:text-slate-400">{pct}% used</p>
         </div>
 
-        {/* User + logout */}
-        <div className="px-4 py-4 border-t border-slate-light dark:border-slate-700 flex items-center gap-3">
-          {user?.avatar_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}${user.avatar_url}`}
-              alt={user.display_name}
-              className="w-8 h-8 rounded-full object-cover shrink-0"
-            />
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-brand/20 flex items-center justify-center text-brand font-semibold text-sm shrink-0">
-              {user?.display_name?.[0]?.toUpperCase() ?? '?'}
-            </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-dark dark:text-slate-100 truncate">
-              {user?.display_name || 'User'}
-            </p>
-            <p className="text-xs text-slate-mid dark:text-slate-400 truncate">{user?.email}</p>
-          </div>
-          <button
-            onClick={onLogout}
-            aria-label="Logout"
-            className="text-slate-mid dark:text-slate-400 hover:text-red-500 transition-colors cursor-pointer"
-          >
-            <IconLogout />
-          </button>
-        </div>
       </aside>
 
       {/* ── Main ── */}
@@ -151,7 +203,7 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
           </div>
 
           <form className="flex-1 max-w-sm" onSubmit={handleSearchSubmit}>
-            <div className="relative">
+            <div className="relative" ref={searchWrapRef}>
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-mid dark:text-slate-400 pointer-events-none">
                 <svg width={15} height={15} viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -162,12 +214,58 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
                 type="text"
                 value={searchVal}
                 onChange={(e) => setSearchVal(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                onFocus={() => { if (suggestions.length > 0) setShowSuggest(true); }}
                 placeholder="Search files and folders…"
                 className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-light dark:border-slate-600
                            bg-brand-bg dark:bg-slate-700 text-sm text-slate-dark dark:text-slate-100
                            placeholder-slate-mid dark:placeholder-slate-400
                            focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand transition"
               />
+              {showSuggest && (
+                <div className="absolute top-full left-0 right-0 mt-1.5 z-50
+                                bg-white dark:bg-slate-800 rounded-xl shadow-lg
+                                border border-slate-light dark:border-slate-700 overflow-hidden">
+                  {suggestions.length === 0 ? (
+                    <div className="px-4 py-3 text-sm text-slate-mid dark:text-slate-400">No results</div>
+                  ) : (
+                    suggestions.map((item, i) => (
+                      <button
+                        key={`${item.type}-${item.id}`}
+                        type="button"
+                        onMouseDown={(e) => { e.preventDefault(); navigateToSuggestion(item); }}
+                        onMouseEnter={() => setSuggestIdx(i)}
+                        className={`flex items-center gap-3 w-full px-3 py-2.5 text-left transition ${
+                          i === suggestIdx
+                            ? 'bg-brand/10 dark:bg-brand/20'
+                            : 'hover:bg-brand-bg dark:hover:bg-slate-700'
+                        } ${i > 0 ? 'border-t border-slate-light/60 dark:border-slate-700/60' : ''}`}
+                      >
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 [&>svg]:w-4 [&>svg]:h-4 ${
+                          item.type === 'folder'
+                            ? 'bg-brand/10 text-brand'
+                            : 'bg-slate-light/60 dark:bg-slate-700 text-slate-mid dark:text-slate-400'
+                        }`}>
+                          {item.type === 'folder' ? <IconFolder /> : <IconFile />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-dark dark:text-slate-100 truncate">{item.name}</p>
+                          {item.type === 'file' && item.size !== undefined && (
+                            <p className="text-xs text-slate-mid dark:text-slate-400">{formatBytes(item.size)}</p>
+                          )}
+                        </div>
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${
+                          item.type === 'folder'
+                            ? 'bg-brand/10 text-brand dark:bg-brand/20'
+                            : 'bg-slate-light/60 dark:bg-slate-700 text-slate-mid dark:text-slate-500'
+                        }`}>
+                          {item.type === 'folder' ? 'Folder' : 'File'}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           </form>
 
@@ -204,12 +302,6 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
                     <p className="text-sm font-medium text-slate-dark dark:text-slate-100 truncate">{user?.display_name}</p>
                     <p className="text-xs text-slate-mid dark:text-slate-400 truncate">{user?.email}</p>
                   </div>
-                  <Link href="/settings" onClick={() => setHeaderMenuOpen(false)}
-                    className="flex items-center gap-2 px-3 py-2 text-sm text-slate-dark dark:text-slate-100
-                               hover:bg-brand-bg dark:hover:bg-slate-700 transition">
-                    <IconSettings />
-                    Settings
-                  </Link>
                   <button onClick={() => { setHeaderMenuOpen(false); onLogout(); }}
                     className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-500
                                hover:bg-red-50 dark:hover:bg-red-900/20 transition text-left cursor-pointer">
@@ -283,33 +375,6 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
             <p className="text-xs text-slate-mid dark:text-slate-400">{pct}% used</p>
           </div>
 
-          <div className="px-4 py-4 border-t border-slate-light dark:border-slate-700 flex items-center gap-3">
-            {user?.avatar_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}${user.avatar_url}`}
-                alt={user.display_name}
-                className="w-8 h-8 rounded-full object-cover shrink-0"
-              />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-brand/20 flex items-center justify-center text-brand font-semibold text-sm shrink-0">
-                {user?.display_name?.[0]?.toUpperCase() ?? '?'}
-              </div>
-            )}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-dark dark:text-slate-100 truncate">
-                {user?.display_name || 'User'}
-              </p>
-              <p className="text-xs text-slate-mid dark:text-slate-400 truncate">{user?.email}</p>
-            </div>
-            <button
-              onClick={onLogout}
-              aria-label="Logout"
-              className="text-slate-mid dark:text-slate-400 hover:text-red-500 transition-colors cursor-pointer"
-            >
-              <IconLogout />
-            </button>
-          </div>
         </aside>
       </div>
     )}
