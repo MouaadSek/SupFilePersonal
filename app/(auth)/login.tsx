@@ -18,6 +18,7 @@ import {
 } from '@/components/auth';
 import { AuthBranded } from '@/constants/authBranded';
 import { FontSize, Spacing } from '@/constants/theme';
+import { ApiError } from '@/services/api/client';
 
 export default function LoginScreen() {
   const { login, isLoading, isAuthenticated } = useAuth();
@@ -25,14 +26,14 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{ email?: string; password?: string; form?: string }>({});
 
   if (isAuthenticated) {
     return <Redirect href="/(tabs)" />;
   }
 
   const validateForm = () => {
-    const newErrors: { email?: string; password?: string } = {};
+    const newErrors: typeof errors = {};
 
     if (!email) {
       newErrors.email = "L'email est requis";
@@ -51,14 +52,20 @@ export default function LoginScreen() {
   };
 
   const handleLogin = async () => {
-    if (validateForm()) {
-      await login(email, password);
+    if (!validateForm()) return;
+    setErrors({});
+    try {
+      await login(email, password, rememberMe);
       router.replace('/(tabs)');
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : 'Connexion impossible. Vérifiez vos identifiants.';
+      setErrors({ form: message });
     }
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={styles.safe} edges={[]}>
       <StatusBar style="light" />
       <AuthBrandedLayout
         showLogo={false}
@@ -125,9 +132,11 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
 
+        {errors.form ? <Text style={styles.formError}>{errors.form}</Text> : null}
+
         <AuthPrimaryButton
           title="Se connecter"
-          onPress={handleLogin}
+          onPress={() => void handleLogin()}
           loading={isLoading}
         />
       </AuthBrandedLayout>
@@ -138,7 +147,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: AuthBranded.pageBackground,
+    backgroundColor: AuthBranded.cardBackground,
   },
   rowBetween: {
     flexDirection: 'row',
@@ -173,6 +182,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: AuthBranded.link,
     marginLeft: Spacing.sm,
+  },
+  formError: {
+    color: AuthBranded.error,
+    fontSize: FontSize.sm,
+    marginBottom: Spacing.md,
+    textAlign: 'center',
   },
   footerRow: {
     flexDirection: 'row',

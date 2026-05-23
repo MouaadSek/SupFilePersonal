@@ -17,16 +17,15 @@ import { FontSize, Spacing, BorderRadius } from '@/constants/theme';
 const LOGO = require('../../assets/images/logo-supfile.png');
 
 const { height: SCREEN_H } = Dimensions.get('window');
-const HEADER_HEIGHT = Math.min(Math.max(SCREEN_H * 0.32, 200), 280);
+const HEADER_HEIGHT = Math.min(Math.max(SCREEN_H * 0.28, 180), 240);
 
 interface AuthBrandedLayoutProps {
   heroTitle: string;
   heroSubtitle: string;
   cardTitle: string;
   children: React.ReactNode;
-  /** Rendu sous la carte blanche (ex. lien inscription). */
+  /** Rendu en bas de la carte blanche (ex. lien inscription). */
   belowCard?: React.ReactNode;
-  /** Affiche le logo SUPFile dans l’en-tête (désactivé sur connexion si besoin). */
   showLogo?: boolean;
 }
 
@@ -51,56 +50,70 @@ export function AuthBrandedLayout({
   const insets = useSafeAreaInsets();
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView
+    <View style={styles.root}>
+      <KeyboardAvoidingView
         style={styles.flex}
-        contentContainerStyle={[
-          styles.scroll,
-          { paddingBottom: Math.max(insets.bottom, Spacing.xl) },
-        ]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
       >
-        <LinearGradient
-          colors={[AuthBranded.headerGradientTop, AuthBranded.headerGradientBottom]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.header, { height: HEADER_HEIGHT, paddingTop: insets.top + Spacing.md }]}
-        >
-          <HeaderWaves />
-          <View style={styles.headerContent}>
-            {showLogo ? (
-              <View style={styles.logoPill}>
-                <Image source={LOGO} style={styles.logo} resizeMode="contain" />
-              </View>
-            ) : null}
-            <Text style={[styles.heroTitle, !showLogo && styles.heroTitleNoLogo]}>
-              {heroTitle}
-            </Text>
-            <Text style={styles.heroSubtitle}>{heroSubtitle}</Text>
-          </View>
-        </LinearGradient>
+        <View style={styles.column}>
+          <LinearGradient
+            colors={[AuthBranded.headerGradientTop, AuthBranded.headerGradientBottom]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.header, { height: HEADER_HEIGHT, paddingTop: insets.top + Spacing.md }]}
+          >
+            <HeaderWaves />
+            <View style={styles.headerContent}>
+              {showLogo ? (
+                <View style={styles.logoPill}>
+                  <Image source={LOGO} style={styles.logo} resizeMode="contain" />
+                </View>
+              ) : null}
+              <Text style={[styles.heroTitle, !showLogo && styles.heroTitleNoLogo]}>
+                {heroTitle}
+              </Text>
+              <Text style={styles.heroSubtitle}>{heroSubtitle}</Text>
+            </View>
+          </LinearGradient>
 
-        <View style={[styles.card, { marginTop: -Spacing.xxxl }]}>
-          <Text style={styles.cardTitle}>{cardTitle}</Text>
-          {children}
+          <View
+            style={[
+              styles.card,
+              {
+                marginTop: -Spacing.xxxl,
+                paddingBottom: Math.max(insets.bottom, Spacing.xl),
+              },
+            ]}
+          >
+            <ScrollView
+              style={styles.flex}
+              contentContainerStyle={styles.cardScroll}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
+              <Text style={styles.cardTitle}>{cardTitle}</Text>
+              {children}
+              {belowCard ? <View style={styles.below}>{belowCard}</View> : null}
+            </ScrollView>
+          </View>
         </View>
-        {belowCard ? <View style={styles.below}>{belowCard}</View> : null}
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: AuthBranded.cardBackground,
+  },
   flex: {
     flex: 1,
-    backgroundColor: AuthBranded.pageBackground,
   },
-  scroll: {
-    flexGrow: 1,
+  column: {
+    flex: 1,
   },
   header: {
     paddingHorizontal: Spacing.xl,
@@ -175,19 +188,20 @@ const styles = StyleSheet.create({
     maxWidth: 340,
   },
   card: {
+    flex: 1,
     backgroundColor: AuthBranded.cardBackground,
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.xxl,
-    paddingBottom: Spacing.xl,
-    marginHorizontal: 0,
     shadowColor: '#0f172a',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.06,
     shadowRadius: 12,
     elevation: 8,
-    minHeight: 120,
+  },
+  cardScroll: {
+    flexGrow: 1,
   },
   cardTitle: {
     fontSize: FontSize.xxl,
@@ -196,8 +210,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
   below: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.lg,
+    marginTop: 'auto',
+    paddingTop: Spacing.xl,
     alignItems: 'center',
   },
 });

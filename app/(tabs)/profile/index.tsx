@@ -356,12 +356,11 @@ export default function ProfileScreen() {
       {
         text: 'Déconnexion',
         style: 'destructive',
-        onPress: () => logout(),
+        onPress: () => void logout(),
       },
     ]);
   };
 
-<<<<<<< Updated upstream
   const handleDeleteAccount = () => {
     Alert.alert(
       'Supprimer le compte',
@@ -380,15 +379,12 @@ export default function ProfileScreen() {
     );
   };
 
-  const storageUsed = 2.5;
-  const storageTotal = 30;
-  const storagePercentage = (storageUsed / storageTotal) * 100;
-=======
-  const storageUsed = quota.used;
-  const storageTotal = quota.total;
+  const storageUsedBytes = user?.storageUsed ?? 0;
+  const storageTotalBytes = user?.storageLimit || 1;
+  const storageUsed = storageUsedBytes / 1024 ** 3;
+  const storageTotal = storageTotalBytes / 1024 ** 3;
   const storagePercentage =
-    storageTotal > 0 ? Math.min(100, (storageUsed / storageTotal) * 100) : 0;
->>>>>>> Stashed changes
+    storageTotalBytes > 0 ? Math.min(100, (storageUsedBytes / storageTotalBytes) * 100) : 0;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

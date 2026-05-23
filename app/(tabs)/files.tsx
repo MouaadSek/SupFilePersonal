@@ -1,9 +1,5 @@
-<<<<<<< Updated upstream
 import React, { useState, useMemo, useCallback } from 'react';
-=======
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
->>>>>>> Stashed changes
 import {
   View,
   Text,
@@ -202,51 +198,12 @@ export default function FilesScreen() {
     return q.length >= 2 || searchTypeFilter !== 'all' || searchDateFilter !== 'all';
   }, [searchQuery, searchTypeFilter, searchDateFilter]);
 
-<<<<<<< Updated upstream
-=======
   useFocusEffect(
     useCallback(() => {
       if (!isSearchMode) void refreshCurrentFolder();
     }, [isSearchMode, refreshCurrentFolder]),
   );
 
-  useEffect(() => {
-    if (!isSearchMode) {
-      setRemoteSearchResults(null);
-      return;
-    }
-    if (searchTypeFilter === 'folder') {
-      setRemoteSearchResults(null);
-      return;
-    }
-    let cancelled = false;
-    const timer = setTimeout(() => {
-      void (async () => {
-        try {
-          const rows = await searchFilesRemote(
-            searchQuery,
-            searchTypeFilter,
-            searchDateFilter,
-          );
-          if (!cancelled) setRemoteSearchResults(rows);
-        } catch {
-          if (!cancelled) setRemoteSearchResults([]);
-        }
-      })();
-    }, 300);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [
-    isSearchMode,
-    searchQuery,
-    searchTypeFilter,
-    searchDateFilter,
-    searchFilesRemote,
-  ]);
-
->>>>>>> Stashed changes
   const displayFiles = useMemo(() => {
     let raw: FileItem[];
     if (!isSearchMode) {

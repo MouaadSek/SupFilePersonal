@@ -1,12 +1,26 @@
 import React from 'react';
-import { Tabs } from 'expo-router';
-import { Platform } from 'react-native';
+import { ActivityIndicator, Platform, View } from 'react-native';
+import { Tabs, Redirect } from 'expo-router';
 import { Home, FolderOpen, Share2, User } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Spacing, BorderRadius } from '@/constants/theme';
 
 export default function TabsLayout() {
   const { colors } = useTheme();
+  const { isAuthenticated, isInitializing } = useAuth();
+
+  if (isInitializing) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect href="/(auth)/login" />;
+  }
 
   return (
     <Tabs

@@ -67,8 +67,8 @@ export default function ChangePasswordScreen() {
     >
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         <Text style={[styles.hint, { color: colors.textSecondary }]}>
-          Démo locale : aucune vérification du mot de passe actuel côté serveur. Le nouveau mot de passe doit
-          faire au moins 8 caractères.
+          Le nouveau mot de passe doit contenir au moins 8 caractères. Votre mot de passe actuel est vérifié
+          par le serveur.
         </Text>
         <Text style={[styles.label, { color: colors.textSecondary }]}>Mot de passe actuel</Text>
         <TextInput

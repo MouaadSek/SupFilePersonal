@@ -54,7 +54,7 @@ export function filePreviewUrl(fileId: string): string {
 export function fileAuthenticatedPreviewUrl(fileId: string): string | undefined {
   const token = getAuthToken();
   if (!token) return undefined;
-  return `${filePreviewUrl(fileId)}?token=${encodeURIComponent(token)}`;
+  return `${filePreviewUrl(fileId)}?access_token=${encodeURIComponent(token)}`;
 }
 
 export function folderZipUrl(folderId: string): string {

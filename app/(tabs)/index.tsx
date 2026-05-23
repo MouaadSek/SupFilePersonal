@@ -40,7 +40,6 @@ import {
 } from '@/data/mockData';
 import { FontSize, Spacing, BorderRadius } from '@/constants/theme';
 import { FileItem } from '@/types';
-<<<<<<< Updated upstream
 import {
   fromImagePickerAsset,
   fromDocumentPickerAsset,
@@ -51,14 +50,8 @@ import {
   lastActivityLabel,
   lastActivityTimestamp,
 } from '@/utils/dashboardStorage';
-=======
 import { FileThumbnail, FileExtensionBadge } from '@/components/files';
-import { isImageFile } from '@/utils/mimeFromFilename';
-import { pickFromCamera, pickFromMediaLibrary, pickDocuments } from '@/utils/importMedia';
-import { lastActivityLabel, lastActivityTimestamp } from '@/utils/dashboardStorage';
-import { formatFolderItemCount, resolveFolderItemCount } from '@/utils/folderItemCount';
->>>>>>> Stashed changes
-import { effectiveMimeTypeForFile } from '@/utils/mimeFromFilename';
+import { isImageFile, effectiveMimeTypeForFile } from '@/utils/mimeFromFilename';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -352,11 +345,6 @@ export default function HomeScreen() {
                 })
               }
             >
-<<<<<<< Updated upstream
-              <View style={[styles.fileIcon, { backgroundColor: colors.primaryLight }]}>
-                <RecentFileIcon file={file} />
-              </View>
-=======
               <FileThumbnail
                 item={file}
                 style={styles.fileIconImage}
@@ -369,7 +357,6 @@ export default function HomeScreen() {
                   )
                 }
               />
->>>>>>> Stashed changes
               <View style={styles.fileInfo}>
                 <Text
                   style={[styles.fileName, { color: colors.text }]}
@@ -631,6 +618,11 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  fileIconImage: {
+    width: 44,
+    height: 44,
   },
   fileInfo: {
     flex: 1,

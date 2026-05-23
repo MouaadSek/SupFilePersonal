@@ -18,8 +18,6 @@ export function mimeTypeFromFilename(filename: string): string | undefined {
   return undefined;
 }
 
-<<<<<<< Updated upstream
-=======
 export function isImageFile(file: FileItem): boolean {
   if (file.type !== 'file') return false;
   const mime = effectiveMimeTypeForFile(file);
@@ -41,7 +39,6 @@ export function hasRemotePreviewSource(file: FileItem): boolean {
   return !!(file.localUri || file.previewUrl || file.downloadUrl || file.thumbnail);
 }
 
->>>>>>> Stashed changes
 /** MIME utilisé pour partage / intent Android : extension prioritaire sur le type stocké. */
 export function effectiveMimeTypeForFile(file: FileItem): string {
   const fromName = mimeTypeFromFilename(file.name);

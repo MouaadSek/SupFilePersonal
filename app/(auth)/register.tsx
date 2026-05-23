@@ -7,7 +7,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Mail, Lock, User, Check } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,22 +19,28 @@ import {
 } from '@/components/auth';
 import { AuthBranded } from '@/constants/authBranded';
 import { FontSize, Spacing } from '@/constants/theme';
+import { ApiError } from '@/services/api/client';
 
 export default function RegisterScreen() {
-  const { register, isLoading } = useAuth();
+  const { register, isLoading, isAuthenticated } = useAuth();
   const insets = useSafeAreaInsets();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [errors, setErrors] = useState<{
     name?: string;
     email?: string;
     password?: string;
     confirmPassword?: string;
+    form?: string;
   }>({});
+
+  if (isAuthenticated) {
+    return <Redirect href="/(tabs)" />;
+  }
 
   const validateForm = () => {
     const newErrors: typeof errors = {};
@@ -51,8 +57,8 @@ export default function RegisterScreen() {
 
     if (!password) {
       newErrors.password = 'Le mot de passe est requis';
-    } else if (password.length < 6) {
-      newErrors.password = 'Au moins 6 caractères';
+    } else if (password.length < 8) {
+      newErrors.password = 'Au moins 8 caractères';
     }
 
     if (!confirmPassword) {
@@ -66,14 +72,20 @@ export default function RegisterScreen() {
   };
 
   const handleRegister = async () => {
-    if (validateForm()) {
-      await register(email, password, name.trim());
+    if (!validateForm()) return;
+    setErrors({});
+    try {
+      await register(email, password, name.trim(), rememberMe);
       router.replace('/(tabs)');
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : 'Inscription impossible. Réessayez.';
+      setErrors({ form: message });
     }
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={styles.safe} edges={[]}>
       <StatusBar style="light" />
       <AppBackButton
         style={[styles.backFab, { top: insets.top + Spacing.sm }]}
@@ -162,9 +174,11 @@ export default function RegisterScreen() {
           </TouchableOpacity>
         </View>
 
+        {errors.form ? <Text style={styles.formError}>{errors.form}</Text> : null}
+
         <AuthPrimaryButton
           title="Créer mon compte"
-          onPress={handleRegister}
+          onPress={() => void handleRegister()}
           loading={isLoading}
         />
 
@@ -181,7 +195,7 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: AuthBranded.pageBackground,
+    backgroundColor: AuthBranded.cardBackground,
   },
   backFab: {
     position: 'absolute',
@@ -221,6 +235,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: AuthBranded.link,
     marginLeft: Spacing.sm,
+  },
+  formError: {
+    color: AuthBranded.error,
+    fontSize: FontSize.sm,
+    marginBottom: Spacing.md,
+    textAlign: 'center',
   },
   terms: {
     fontSize: FontSize.sm,

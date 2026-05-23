@@ -1,14 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Image, StyleSheet, Animated } from 'react-native';
+import { View, Image, StyleSheet, Animated, ActivityIndicator } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { Redirect } from 'expo-router';
 import { OnboardingFlow } from '@/components/onboarding';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const LOGO = require('../assets/images/logo-supfile.png');
 
 const SPLASH_BG = '#ffffff';
 
 export default function Index() {
+  const { isAuthenticated, isInitializing } = useAuth();
+  const { colors } = useTheme();
   const [phase, setPhase] = useState<'splash' | 'onboarding' | 'ready'>('splash');
   const opacity = useRef(new Animated.Value(1)).current;
   const scale = useRef(new Animated.Value(0.88)).current;
@@ -42,7 +46,14 @@ export default function Index() {
   }, []);
 
   if (phase === 'ready') {
-    return <Redirect href="/(auth)/login" />;
+    if (isInitializing) {
+      return (
+        <View style={[styles.splashRoot, { backgroundColor: SPLASH_BG }]}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      );
+    }
+    return <Redirect href={isAuthenticated ? '/(tabs)' : '/(auth)/login'} />;
   }
 
   if (phase === 'onboarding') {

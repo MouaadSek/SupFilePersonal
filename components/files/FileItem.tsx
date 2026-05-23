@@ -1,29 +1,12 @@
 import React from 'react';
-<<<<<<< Updated upstream
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
-import {
-  Folder,
-  FileText,
-  Image as ImageIcon,
-  Video,
-  Music,
-  File,
-  MoreVertical,
-  Check,
-} from 'lucide-react-native';
-import { useTheme } from '@/contexts/ThemeContext';
-import { FileItem as FileItemType } from '@/types';
-import { formatFileSize, formatDate, getFileColor } from '@/data/mockData';
-=======
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Folder, MoreVertical, Check } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FileItem as FileItemType } from '@/types';
-import { formatFileSize, formatDate } from '@/utils/format';
+import { formatFileSize, formatDate } from '@/data/mockData';
 import { isImageFile } from '@/utils/mimeFromFilename';
 import { FileThumbnail } from './FileThumbnail';
 import { FileExtensionBadge } from './FileExtensionBadge';
->>>>>>> Stashed changes
 import { FontSize, Spacing, BorderRadius } from '@/constants/theme';
 
 interface FileItemProps {
@@ -89,19 +72,6 @@ export function FileItemComponent({
         >
           <MoreVertical size={16} color={colors.textSecondary} />
         </TouchableOpacity>
-        
-<<<<<<< Updated upstream
-        {(item.localUri || item.thumbnail) && item.type === 'file' && item.mimeType?.startsWith('image/') ? (
-          <Image
-            source={{ uri: item.localUri || item.thumbnail }}
-            style={styles.gridThumbnail}
-            resizeMode="cover"
-          />
-        ) : (
-          <View style={[styles.gridIconContainer, { backgroundColor: colors.primaryLight }]}>
-            {getIcon()}
-          </View>
-=======
         {showImageThumb ? (
           <FileThumbnail
             item={item}
@@ -111,7 +81,6 @@ export function FileItemComponent({
           />
         ) : (
           gridFallback()
->>>>>>> Stashed changes
         )}
         
         <Text style={[styles.gridName, { color: colors.text }]} numberOfLines={2}>
@@ -142,21 +111,10 @@ export function FileItemComponent({
       )}
       
       <View style={[styles.listIconContainer, { backgroundColor: isSelected ? colors.primary + '20' : colors.primaryLight }]}>
-<<<<<<< Updated upstream
-        {(item.localUri || item.thumbnail) && item.type === 'file' && item.mimeType?.startsWith('image/') ? (
-          <Image
-            source={{ uri: item.localUri || item.thumbnail }}
-            style={styles.listThumbnail}
-            resizeMode="cover"
-          />
-        ) : (
-          getIcon()
-=======
         {showImageThumb ? (
           <FileThumbnail item={item} style={styles.listThumbnail} fallback={listFallback()} />
         ) : (
           listFallback()
->>>>>>> Stashed changes
         )}
       </View>
       
@@ -217,6 +175,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: Spacing.md,
     marginBottom: Spacing.md,
+  },
+  gridThumbnailWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.md,
+    overflow: 'hidden',
   },
   gridThumbnail: {
     width: 72,

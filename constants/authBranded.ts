@@ -22,5 +22,6 @@ export const AuthBranded = {
   waveLight: 'rgba(255,255,255,0.14)',
   waveSoft: 'rgba(255,255,255,0.08)',
   githubBg: '#24292f',
+  googleBorder: '#e2e8f0',
   error: '#dc2626',
 };

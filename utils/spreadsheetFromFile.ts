@@ -18,14 +18,6 @@ export async function loadSpreadsheetRows(file: FileItem): Promise<string[][]> {
   if (file.localUri) {
     const b64 = await FileSystem.readAsStringAsync(file.localUri, { encoding: 'base64' });
     wb = XLSX.read(b64, { type: 'base64' });
-<<<<<<< Updated upstream
-  } else if (file.downloadUrl) {
-    const res = await fetch(file.downloadUrl);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const ab = await res.arrayBuffer();
-    wb = XLSX.read(new Uint8Array(ab), { type: 'array' });
-=======
->>>>>>> Stashed changes
   } else {
     const remote = file.downloadUrl || file.previewUrl;
     if (remote) {

@@ -72,6 +72,7 @@ interface FilesContextType {
   ) => Promise<FileItem | null>;
   dismissCompletedUploads: () => void;
   refreshCurrentFolder: () => Promise<void>;
+  refreshShares: () => Promise<void>;
   cancelUploadJob: (jobId: string) => void;
   getFileById: (fileId: string) => FileItem | undefined;
   searchFiles: (query: string) => FileItem[];
@@ -536,8 +537,14 @@ export function FilesProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshCurrentFolder = useCallback(async () => {
-    await refreshListing(currentFolder);
-  }, [currentFolder, refreshListing]);
+    setIsLoading(true);
+    await new Promise((r) => setTimeout(r, 150));
+    setIsLoading(false);
+  }, [currentFolder]);
+
+  const refreshShares = useCallback(async () => {
+    await new Promise((r) => setTimeout(r, 100));
+  }, []);
 
   const cancelUploadJob = (jobId: string) => {
     uploadAbortRef.current[jobId] = true;
@@ -618,7 +625,6 @@ export function FilesProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   };
 
-<<<<<<< Updated upstream
   const duplicateItem = async (itemId: string) => {
     setIsLoading(true);
     await new Promise((r) => setTimeout(r, 300));
@@ -662,8 +668,6 @@ export function FilesProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   };
 
-=======
->>>>>>> Stashed changes
   const createPublicShareLink = useCallback(
     (opts: {
       targetId: string;
@@ -744,6 +748,7 @@ export function FilesProvider({ children }: { children: ReactNode }) {
         enqueueUploadWithProgress,
         dismissCompletedUploads,
         refreshCurrentFolder,
+        refreshShares,
         cancelUploadJob,
         getFileById,
         searchFiles,

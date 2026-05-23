@@ -52,13 +52,8 @@ import {
   openDocumentInExternalApp,
   shareDocumentFile,
 } from '@/utils/openDocumentInExternalApp';
-<<<<<<< Updated upstream
 import { fetchPdfAsInlineDataUri } from '@/utils/pdfInlineDataUri';
-=======
-import { preparePdfWebViewSource } from '@/utils/pdfPreviewSource';
-import { useCachedMediaUri } from '@/hooks/useCachedMediaUri';
 import { fileAuthenticatedPreviewUrl } from '@/services/api/client';
->>>>>>> Stashed changes
 import { loadSpreadsheetRows, spreadsheetRowsToHtml } from '@/utils/spreadsheetFromFile';
 import { shareSingleFileToDevice } from '@/utils/folderArchiveDownload';
 
@@ -434,16 +429,6 @@ function AudioNativePreview({ uri }: { uri: string }) {
 
 function ImageFullPreview({ uri }: { uri: string }) {
   const { colors } = useTheme();
-<<<<<<< Updated upstream
-=======
-  const cached = useCachedMediaUri(file);
-  const quickUri =
-    file.localUri ||
-    file.thumbnail ||
-    (file.id ? fileAuthenticatedPreviewUrl(file.id) : null) ||
-    cached;
-  const uri = quickUri;
->>>>>>> Stashed changes
   const [busy, setBusy] = useState(true);
   return (
     <View style={[styles.mediaBox, { backgroundColor: colors.background }]}>
@@ -466,45 +451,15 @@ function ImageFullPreview({ uri }: { uri: string }) {
 
 type ThemePalette = (typeof Colors)['light'];
 
-<<<<<<< Updated upstream
 function imageUriForFile(f: FileItem): string | null {
-  return f.localUri || f.thumbnail || f.downloadUrl || null;
-=======
-function GalleryThumb({ file, selected, onPress }: { file: FileItem; selected: boolean; onPress: () => void }) {
-  const { colors } = useTheme();
-  const cached = useCachedMediaUri(file);
-  const uri =
-    file.localUri ||
-    file.thumbnail ||
-    (file.id ? fileAuthenticatedPreviewUrl(file.id) : null) ||
-    cached;
-  if (!uri) {
-    return (
-      <View
-        style={[
-          styles.galleryThumbWrap,
-          { borderColor: colors.border, justifyContent: 'center', alignItems: 'center' },
-        ]}
-      >
-        <ActivityIndicator size="small" color={colors.primary} />
-      </View>
-    );
-  }
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      style={[
-        styles.galleryThumbWrap,
-        { borderColor: selected ? colors.primary : colors.border },
-        selected && { backgroundColor: colors.primaryLight },
-      ]}
-      accessibilityRole="imagebutton"
-      accessibilityLabel={file.name}
-    >
-      <Image source={{ uri }} style={styles.galleryThumb} />
-    </TouchableOpacity>
+    f.localUri ||
+    f.thumbnail ||
+    (f.id ? fileAuthenticatedPreviewUrl(f.id) : undefined) ||
+    f.previewUrl ||
+    f.downloadUrl ||
+    null
   );
->>>>>>> Stashed changes
 }
 
 function ImageGalleryPreview({
@@ -597,15 +552,10 @@ function TextOrMarkdownPreview({ file }: { file: FileItem }) {
           if (alive) setText(t);
           return;
         }
-<<<<<<< Updated upstream
-        if (file.downloadUrl) {
-          const res = await fetch(file.downloadUrl);
-=======
         const remote = file.downloadUrl || file.previewUrl;
         if (remote) {
           const { fetchWithAuth } = await import('@/utils/authenticatedFetch');
           const res = await fetchWithAuth(remote);
->>>>>>> Stashed changes
           const t = await res.text();
           if (alive) setText(t);
           return;
@@ -814,34 +764,6 @@ export default function PreviewScreen() {
   }, [file?.id]);
 
   useEffect(() => {
-<<<<<<< Updated upstream
-=======
-    if (!file) return;
-    if (file.localUri) {
-      setPlaybackUri(streamUri(file));
-      return;
-    }
-    if (isImageFile(file)) {
-      const direct =
-        file.localUri || file.thumbnail || streamUri(file);
-      if (direct) {
-        setPlaybackUri(direct);
-        return;
-      }
-    }
-    let alive = true;
-    void import('@/utils/cacheRemoteFile').then(({ cacheRemoteFileForPlayback }) =>
-      cacheRemoteFileForPlayback(file).then((cached) => {
-        if (alive) setPlaybackUri(cached || streamUri(file));
-      }),
-    );
-    return () => {
-      alive = false;
-    };
-  }, [file?.id, file?.localUri, file?.previewUrl, file?.downloadUrl, file?.thumbnail, file?.mimeType]);
-
-  useEffect(() => {
->>>>>>> Stashed changes
     if (!file) {
       setResolvedFsBytes(null);
       return;

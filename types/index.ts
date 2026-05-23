@@ -26,6 +26,10 @@ export interface FileItem {
   thumbnail?: string;
   /** URL signée ou publique pour télécharger puis ouvrir avec une app externe */
   downloadUrl?: string;
+  /** URL de prévisualisation (stream / inline) */
+  previewUrl?: string;
+  /** Nombre d’éléments dans un dossier (API) */
+  itemCount?: number;
   /** Présent si l’élément est à la corbeille (suppression douce) */
   deletedAt?: Date;
   /** Regroupe les nœuds supprimés ensemble (ex. dossier + contenu) */
