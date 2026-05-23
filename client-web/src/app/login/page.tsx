@@ -56,19 +56,19 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <Image src="/supfile.png" alt="SUPFile" width={56} height={56} className="rounded-2xl shadow-md mb-3" priority />
-          <h1 className="text-2xl font-bold text-slate-dark">Welcome back</h1>
-          <p className="text-sm text-slate-mid mt-1">Sign in to your SUPFile account</p>
+          <h1 className="text-2xl font-bold text-slate-dark dark:text-slate-100">Welcome back</h1>
+          <p className="text-sm text-slate-mid dark:text-slate-400 mt-1">Sign in to your SUPFile account</p>
         </div>
 
         {error && (
-          <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">
+          <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 text-red-600 dark:text-red-400 text-sm">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-dark mb-1.5">Email</label>
+            <label className="block text-sm font-medium text-slate-dark dark:text-slate-100 mb-1.5">Email</label>
             <input
               type="email"
               className="input-field"
@@ -82,7 +82,7 @@ export default function LoginPage() {
 
           <div>
             <div className="flex justify-between items-center mb-1.5">
-              <label className="block text-sm font-medium text-slate-dark">Password</label>
+              <label className="block text-sm font-medium text-slate-dark dark:text-slate-100">Password</label>
               <Link href="/forgot-password" className="text-xs text-brand hover:text-brand-light transition">
                 Forgot password?
               </Link>
@@ -111,17 +111,18 @@ export default function LoginPage() {
 
         {/* OAuth buttons */}
         <div className="flex items-center gap-3 my-6">
-          <hr className="flex-1 border-slate-light" />
-          <span className="text-xs text-slate-mid">or continue with</span>
-          <hr className="flex-1 border-slate-light" />
+          <hr className="flex-1 border-slate-light dark:border-slate-700" />
+          <span className="text-xs text-slate-mid dark:text-slate-400">or continue with</span>
+          <hr className="flex-1 border-slate-light dark:border-slate-700" />
         </div>
 
         <div className="space-y-3">
           {/* Google */}
           <a
             href={`${API_BASE}/auth/oauth/google`}
-            className="flex items-center justify-center gap-3 w-full py-3 rounded-xl border border-slate-light
-                       bg-white text-slate-dark text-sm font-medium hover:bg-gray-50 hover:border-gray-300
+            className="flex items-center justify-center gap-3 w-full py-3 rounded-xl border border-slate-light dark:border-slate-600
+                       bg-white dark:bg-slate-700 text-slate-dark dark:text-slate-100 text-sm font-medium
+                       hover:bg-gray-50 dark:hover:bg-slate-600 hover:border-gray-300 dark:hover:border-slate-500
                        transition-colors duration-200 shadow-sm"
           >
             <GoogleIcon />
@@ -131,15 +132,16 @@ export default function LoginPage() {
           {/* GitHub */}
           <a
             href={`${API_BASE}/auth/oauth/github`}
-            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-slate-light
-                       text-slate-dark text-sm font-medium hover:bg-brand-bg transition-colors duration-200"
+            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-slate-light dark:border-slate-600
+                       text-slate-dark dark:text-slate-100 text-sm font-medium
+                       hover:bg-brand-bg dark:hover:bg-slate-700 transition-colors duration-200"
           >
             <GithubIcon />
             Continue with GitHub
           </a>
         </div>
 
-        <p className="text-center text-sm text-slate-mid mt-6">
+        <p className="text-center text-sm text-slate-mid dark:text-slate-400 mt-6">
           No account?{' '}
           <Link href="/register" className="text-brand font-medium hover:text-brand-light transition">
             Create one

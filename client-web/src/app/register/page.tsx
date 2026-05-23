@@ -53,19 +53,19 @@ export default function RegisterPage() {
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <Image src="/supfile.png" alt="SUPFile" width={56} height={56} className="rounded-2xl shadow-md mb-3" priority />
-          <h1 className="text-2xl font-bold text-slate-dark">Create your account</h1>
-          <p className="text-sm text-slate-mid mt-1">30 GB free — no credit card required</p>
+          <h1 className="text-2xl font-bold text-slate-dark dark:text-slate-100">Create your account</h1>
+          <p className="text-sm text-slate-mid dark:text-slate-400 mt-1">30 GB free — no credit card required</p>
         </div>
 
         {error && (
-          <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">
+          <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 text-red-600 dark:text-red-400 text-sm">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-dark mb-1.5">Name</label>
+            <label className="block text-sm font-medium text-slate-dark dark:text-slate-100 mb-1.5">Name</label>
             <input
               type="text"
               className="input-field"
@@ -77,7 +77,7 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-dark mb-1.5">Email</label>
+            <label className="block text-sm font-medium text-slate-dark dark:text-slate-100 mb-1.5">Email</label>
             <input
               type="email"
               className="input-field"
@@ -90,7 +90,7 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-dark mb-1.5">Password</label>
+            <label className="block text-sm font-medium text-slate-dark dark:text-slate-100 mb-1.5">Password</label>
             <input
               type="password"
               className="input-field"
@@ -108,18 +108,18 @@ export default function RegisterPage() {
                     <div
                       key={n}
                       className={`h-1 flex-1 rounded-full transition-colors duration-300 ${
-                        n <= strength.score ? strength.color : 'bg-slate-light'
+                        n <= strength.score ? strength.color : 'bg-slate-light dark:bg-slate-600'
                       }`}
                     />
                   ))}
                 </div>
-                <p className="text-xs text-slate-mid">{strength.label}</p>
+                <p className="text-xs text-slate-mid dark:text-slate-400">{strength.label}</p>
               </div>
             )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-dark mb-1.5">
+            <label className="block text-sm font-medium text-slate-dark dark:text-slate-100 mb-1.5">
               Confirm password
             </label>
             <input
@@ -148,21 +148,22 @@ export default function RegisterPage() {
 
         {/* OAuth divider */}
         <div className="flex items-center gap-3 my-6">
-          <hr className="flex-1 border-slate-light" />
-          <span className="text-xs text-slate-mid">or sign up with</span>
-          <hr className="flex-1 border-slate-light" />
+          <hr className="flex-1 border-slate-light dark:border-slate-700" />
+          <span className="text-xs text-slate-mid dark:text-slate-400">or sign up with</span>
+          <hr className="flex-1 border-slate-light dark:border-slate-700" />
         </div>
 
         <a
           href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/auth/oauth/github`}
-          className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-slate-light
-                     text-slate-dark text-sm font-medium hover:bg-brand-bg transition-colors duration-200"
+          className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-slate-light dark:border-slate-600
+                     text-slate-dark dark:text-slate-100 text-sm font-medium
+                     hover:bg-brand-bg dark:hover:bg-slate-700 transition-colors duration-200"
         >
           <GithubIcon />
           Continue with GitHub
         </a>
 
-        <p className="text-center text-sm text-slate-mid mt-6">
+        <p className="text-center text-sm text-slate-mid dark:text-slate-400 mt-6">
           Already have an account?{' '}
           <Link href="/login" className="text-brand font-medium hover:text-brand-light transition">
             Sign in

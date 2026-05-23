@@ -27,7 +27,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         {children}
 
         {/* Footer note */}
-        <p className="text-center text-xs text-slate-mid mt-6">
+        <p className="text-center text-xs text-slate-mid dark:text-slate-400 mt-6">
           SUPFile &copy; {new Date().getFullYear()} — Secure cloud storage
         </p>
       </div>
