@@ -11,9 +11,18 @@ interface ShareResource {
   size?: number;
 }
 
+interface FolderFile {
+  id: string;
+  name: string;
+  mime_type?: string;
+  size?: number;
+  created_at?: string;
+}
+
 interface ShareData {
   type: 'file' | 'folder';
   resource: ShareResource;
+  files?: FolderFile[];
 }
 
 type PageState = 'loading' | 'protected' | 'expired' | 'not_found' | 'error' | 'ready';
@@ -186,10 +195,28 @@ export default function SharePage({ params }: { params: { token: string } }) {
     return verifiedPw ? `${base}?password=${encodeURIComponent(verifiedPw)}` : base;
   }
 
+  function getFileDownloadUrl(fileId: string) {
+    const params = new URLSearchParams({ file_id: fileId });
+    if (verifiedPw) params.set('password', verifiedPw);
+    return `${getApiBase()}/shares/${token}/download?${params.toString()}`;
+  }
+
+  function mimeIcon(mime?: string): string {
+    if (!mime) return '📄';
+    if (mime.startsWith('image/')) return '🖼️';
+    if (mime.startsWith('video/')) return '🎬';
+    if (mime.startsWith('audio/')) return '🎵';
+    if (mime === 'application/pdf') return '📄';
+    if (mime.startsWith('text/') || mime === 'application/json') return '📝';
+    return '📁';
+  }
+
   const canPreview =
     pageState === 'ready' &&
     shareData?.type === 'file' &&
     isPreviewable(shareData.resource.mime_type);
+
+  const isFolder = pageState === 'ready' && shareData?.type === 'folder';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col items-center justify-center p-4">
@@ -201,7 +228,7 @@ export default function SharePage({ params }: { params: { token: string } }) {
         <p className="text-slate-500 text-sm mt-1">Secure file sharing</p>
       </div>
 
-      <div className={`w-full transition-all ${canPreview ? 'max-w-3xl' : 'max-w-md'}`}>
+      <div className={`w-full transition-all ${canPreview || isFolder ? 'max-w-3xl' : 'max-w-md'}`}>
         {pageState === 'loading' && (
           <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-10 flex flex-col items-center gap-4">
             <div className="w-10 h-10 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
@@ -344,8 +371,45 @@ export default function SharePage({ params }: { params: { token: string } }) {
               )}
 
               {shareData.type === 'folder' && (
-                <div className="px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 text-sm text-center">
-                  Folder contents can only be accessed by the file owner.
+                <div className="mt-1">
+                  {!shareData.files || shareData.files.length === 0 ? (
+                    <div className="px-4 py-6 rounded-xl bg-slate-50 border border-slate-200 text-slate-400 text-sm text-center">
+                      This folder is empty.
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-slate-200 overflow-hidden divide-y divide-slate-100">
+                      {shareData.files.map((f) => (
+                        <div
+                          key={f.id}
+                          className="flex items-center gap-3 px-4 py-3 bg-white hover:bg-slate-50 transition"
+                        >
+                          <span className="text-xl shrink-0">{mimeIcon(f.mime_type)}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-slate-800 truncate">{f.name}</p>
+                            {f.size !== undefined && (
+                              <p className="text-xs text-slate-400">{formatBytes(f.size)}</p>
+                            )}
+                          </div>
+                          <a
+                            href={getFileDownloadUrl(f.id)}
+                            className="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-blue-500 text-white
+                                       rounded-lg font-medium text-xs hover:bg-blue-600 transition"
+                          >
+                            <svg width={12} height={12} viewBox="0 0 24 24" fill="none"
+                              stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                              <polyline points="7 10 12 15 17 10" />
+                              <line x1="12" y1="15" x2="12" y2="3" />
+                            </svg>
+                            Download
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-slate-400 mt-2 text-center">
+                    {shareData.files.length} file{shareData.files.length !== 1 ? 's' : ''} in this folder
+                  </p>
                 </div>
               )}
             </div>

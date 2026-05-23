@@ -52,7 +52,13 @@ async function access(req, res, next) {
       return res.json({ type: 'file', resource: file.rows[0] });
     }
     const folder = await query('SELECT id, name FROM folders WHERE id = $1', [share.folder_id]);
-    return res.json({ type: 'folder', resource: folder.rows[0] });
+    const folderFiles = await query(
+      `SELECT id, name, mime_type, size, created_at FROM files
+       WHERE folder_id = $1 AND trashed = FALSE
+       ORDER BY name ASC`,
+      [share.folder_id]
+    );
+    return res.json({ type: 'folder', resource: folder.rows[0], files: folderFiles.rows });
   } catch (err) {
     next(err);
   }
@@ -125,11 +131,23 @@ async function downloadShare(req, res, next) {
       if (!match) return res.status(403).json({ error: 'Wrong password' });
     }
 
-    if (!share.file_id) return res.status(400).json({ error: 'This share link is for a folder' });
+    let fileId = share.file_id;
+    if (!fileId) {
+      // Folder share — caller must supply ?file_id=<uuid>
+      const qFileId = req.query.file_id;
+      if (!qFileId) return res.status(400).json({ error: 'This share link is for a folder. Specify ?file_id.' });
+      // Verify the file belongs to the shared folder
+      const checkResult = await query(
+        'SELECT id FROM files WHERE id = $1 AND folder_id = $2 AND trashed = FALSE',
+        [qFileId, share.folder_id]
+      );
+      if (!checkResult.rows.length) return res.status(404).json({ error: 'File not found in this shared folder' });
+      fileId = qFileId;
+    }
 
     const fileResult = await query(
       'SELECT * FROM files WHERE id = $1 AND trashed = FALSE',
-      [share.file_id]
+      [fileId]
     );
     const file = fileResult.rows[0];
     if (!file) return res.status(404).json({ error: 'File not found' });
