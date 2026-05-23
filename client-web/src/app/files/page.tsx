@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, type ChangeEvent } from 'react';
+import { useState, useEffect, useRef, useCallback, Suspense, type ChangeEvent } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/api';
@@ -525,8 +526,10 @@ function PreviewModal({
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
-export default function FilesPage() {
+function FilesPageInner() {
   const { user, loading: authLoading, logout } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [folderId, setFolderId] = useState<string | null>(null);
   const [crumbs, setCrumbs] = useState<Crumb[]>([{ id: null, name: 'My Files' }]);
@@ -610,12 +613,10 @@ export default function FilesPage() {
   // ── URL params — search mode or shared folder navigation ────────────────
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const params = new URLSearchParams(window.location.search);
-    const q    = params.get('q')    || '';
-    const type = params.get('type') || '';
-    const date = params.get('date') || '';
-    const folder = params.get('folder');
+    const q      = searchParams.get('q')      || '';
+    const type   = searchParams.get('type')   || '';
+    const date   = searchParams.get('date')   || '';
+    const folder = searchParams.get('folder');
 
     if (q || type || date) {
       setIsSearchMode(true);
@@ -625,8 +626,15 @@ export default function FilesPage() {
     } else if (folder) {
       setCrumbs([{ id: null, name: 'My Files' }, { id: folder, name: '…' }]);
       setFolderId(folder);
+    } else {
+      setIsSearchMode(false);
+      setSearchQuery('');
+      setSearchType('');
+      setSearchDate('');
+      setSearchFiles([]);
+      setSearchFolders([]);
     }
-  }, []);
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Search data loading ──────────────────────────────────────────────────
 
@@ -666,20 +674,11 @@ export default function FilesPage() {
     if (q)    p.set('q',    q);
     if (type) p.set('type', type);
     if (date) p.set('date', date);
-    window.history.replaceState(null, '', p.toString() ? `/files?${p.toString()}` : '/files');
-    setSearchQuery(q);
-    setSearchType(type);
-    setSearchDate(date);
+    router.replace(p.toString() ? `/files?${p.toString()}` : '/files', { scroll: false });
   }
 
   function clearSearch() {
-    setIsSearchMode(false);
-    setSearchQuery('');
-    setSearchType('');
-    setSearchDate('');
-    setSearchFiles([]);
-    setSearchFolders([]);
-    window.history.replaceState(null, '', '/files');
+    router.replace('/files', { scroll: false });
   }
 
   // ── Data loading ─────────────────────────────────────────────────────────
@@ -1549,5 +1548,13 @@ export default function FilesPage() {
 
       {toast && <Toast message={toast.msg} type={toast.type} />}
     </DashboardLayout>
+  );
+}
+
+export default function FilesPage() {
+  return (
+    <Suspense>
+      <FilesPageInner />
+    </Suspense>
   );
 }
