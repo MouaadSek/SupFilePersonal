@@ -27,13 +27,113 @@ function formatBytes(bytes: number) {
   return `${Math.round(bytes / 1024)} KB`;
 }
 
-function FileTypeIcon({ mime }: { mime?: string }) {
-  if (!mime) return <span className="text-5xl">📂</span>;
-  if (mime.startsWith('image/')) return <span className="text-5xl">🖼️</span>;
-  if (mime.startsWith('video/')) return <span className="text-5xl">🎬</span>;
-  if (mime.startsWith('audio/')) return <span className="text-5xl">🎵</span>;
-  if (mime === 'application/pdf') return <span className="text-5xl">📄</span>;
-  return <span className="text-5xl">📁</span>;
+function isPreviewable(mime?: string): boolean {
+  if (!mime) return false;
+  return (
+    mime.startsWith('image/') ||
+    mime.startsWith('video/') ||
+    mime.startsWith('audio/') ||
+    mime === 'application/pdf' ||
+    mime.startsWith('text/') ||
+    mime === 'application/json'
+  );
+}
+
+function PreviewPanel({ mime, url }: { mime: string; url: string }) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [text, setText] = useState<string | null>(null);
+  const [fetching, setFetching] = useState(false);
+
+  useEffect(() => {
+    if (mime === 'application/pdf') {
+      setFetching(true);
+      fetch(url)
+        .then((r) => r.blob())
+        .then((b) => setBlobUrl(URL.createObjectURL(b)))
+        .catch(() => setBlobUrl(null))
+        .finally(() => setFetching(false));
+    } else if (mime.startsWith('text/') || mime === 'application/json') {
+      setFetching(true);
+      fetch(url)
+        .then((r) => r.text())
+        .then((t) => setText(t))
+        .catch(() => setText(null))
+        .finally(() => setFetching(false));
+    }
+    return () => {
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [url, mime]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (mime.startsWith('image/')) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={url}
+        alt="Preview"
+        className="max-w-full max-h-[65vh] rounded-xl object-contain mx-auto block"
+      />
+    );
+  }
+
+  if (mime.startsWith('video/')) {
+    return (
+      <video
+        controls
+        src={url}
+        className="max-w-full max-h-[65vh] rounded-xl mx-auto block"
+      />
+    );
+  }
+
+  if (mime.startsWith('audio/')) {
+    return (
+      <div className="w-full px-2 py-4">
+        <audio controls src={url} className="w-full" />
+      </div>
+    );
+  }
+
+  if (mime === 'application/pdf') {
+    if (fetching) {
+      return (
+        <div className="flex items-center justify-center h-64">
+          <div className="w-8 h-8 rounded-full border-4 border-blue-400 border-t-transparent animate-spin" />
+        </div>
+      );
+    }
+    if (blobUrl) {
+      return (
+        <iframe
+          src={blobUrl}
+          title="PDF Preview"
+          className="w-full h-[65vh] rounded-xl border-0"
+        />
+      );
+    }
+    return null;
+  }
+
+  if (mime.startsWith('text/') || mime === 'application/json') {
+    if (fetching) {
+      return (
+        <div className="flex items-center justify-center h-32">
+          <div className="w-6 h-6 rounded-full border-4 border-blue-400 border-t-transparent animate-spin" />
+        </div>
+      );
+    }
+    if (text !== null) {
+      return (
+        <pre className="w-full max-h-[65vh] overflow-auto text-left text-xs font-mono
+                        bg-slate-50 border border-slate-200 rounded-xl p-4
+                        text-slate-700 whitespace-pre-wrap break-words">
+          {text}
+        </pre>
+      );
+    }
+  }
+
+  return null;
 }
 
 export default function SharePage({ params }: { params: { token: string } }) {
@@ -86,6 +186,11 @@ export default function SharePage({ params }: { params: { token: string } }) {
     return verifiedPw ? `${base}?password=${encodeURIComponent(verifiedPw)}` : base;
   }
 
+  const canPreview =
+    pageState === 'ready' &&
+    shareData?.type === 'file' &&
+    isPreviewable(shareData.resource.mime_type);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col items-center justify-center p-4">
       {/* Logo */}
@@ -96,7 +201,7 @@ export default function SharePage({ params }: { params: { token: string } }) {
         <p className="text-slate-500 text-sm mt-1">Secure file sharing</p>
       </div>
 
-      <div className="w-full max-w-md">
+      <div className={`w-full transition-all ${canPreview ? 'max-w-3xl' : 'max-w-md'}`}>
         {pageState === 'loading' && (
           <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-10 flex flex-col items-center gap-4">
             <div className="w-10 h-10 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
@@ -171,50 +276,75 @@ export default function SharePage({ params }: { params: { token: string } }) {
           <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
             <div className="h-1.5 bg-gradient-to-r from-blue-400 to-blue-600" />
 
-            <div className="p-8 text-center">
-              <div className="mb-4 flex justify-center">
-                <FileTypeIcon mime={shareData.resource.mime_type} />
-              </div>
-
-              <h2 className="text-lg font-semibold text-slate-800 break-all mb-1">
-                {shareData.resource.name}
-              </h2>
-
-              <div className="flex items-center justify-center gap-3 text-xs text-slate-400 mb-6">
-                {shareData.type === 'file' ? (
-                  <>
-                    <span className="capitalize">
-                      {shareData.resource.mime_type?.split('/')[1] ?? 'file'}
-                    </span>
-                    {shareData.resource.size !== undefined && (
+            <div className="p-6">
+              {/* File info */}
+              <div className="flex items-start gap-4 mb-5">
+                <div className="shrink-0 w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-2xl">
+                  {!shareData.resource.mime_type && '📂'}
+                  {shareData.resource.mime_type?.startsWith('image/') && '🖼️'}
+                  {shareData.resource.mime_type?.startsWith('video/') && '🎬'}
+                  {shareData.resource.mime_type?.startsWith('audio/') && '🎵'}
+                  {shareData.resource.mime_type === 'application/pdf' && '📄'}
+                  {shareData.resource.mime_type?.startsWith('text/') && '📝'}
+                  {shareData.resource.mime_type === 'application/json' && '📝'}
+                  {shareData.resource.mime_type &&
+                    !shareData.resource.mime_type.startsWith('image/') &&
+                    !shareData.resource.mime_type.startsWith('video/') &&
+                    !shareData.resource.mime_type.startsWith('audio/') &&
+                    !shareData.resource.mime_type.startsWith('text/') &&
+                    shareData.resource.mime_type !== 'application/pdf' &&
+                    shareData.resource.mime_type !== 'application/json' &&
+                    '📁'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-base font-semibold text-slate-800 break-all leading-snug">
+                    {shareData.resource.name}
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {shareData.type === 'file' ? (
                       <>
-                        <span>·</span>
-                        <span>{formatBytes(shareData.resource.size)}</span>
+                        <span className="capitalize">
+                          {shareData.resource.mime_type?.split('/')[1] ?? 'file'}
+                        </span>
+                        {shareData.resource.size !== undefined && (
+                          <> · {formatBytes(shareData.resource.size)}</>
+                        )}
                       </>
+                    ) : (
+                      'Shared folder'
                     )}
-                  </>
-                ) : (
-                  <span>Shared folder</span>
+                  </p>
+                </div>
+
+                {shareData.type === 'file' && (
+                  <a
+                    href={getDownloadUrl()}
+                    className="shrink-0 flex items-center gap-1.5 px-4 py-2 bg-blue-500 text-white
+                               rounded-xl font-medium text-sm hover:bg-blue-600 transition"
+                  >
+                    <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Download
+                  </a>
                 )}
               </div>
 
-              {shareData.type === 'file' ? (
-                <a
-                  href={getDownloadUrl()}
-                  className="inline-flex items-center justify-center gap-2 w-full px-6 py-3
-                             bg-blue-500 text-white rounded-xl font-medium text-sm
-                             hover:bg-blue-600 transition"
-                >
-                  <svg width={16} height={16} viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="7 10 12 15 17 10" />
-                    <line x1="12" y1="15" x2="12" y2="3" />
-                  </svg>
-                  Download file
-                </a>
-              ) : (
-                <div className="px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 text-sm">
+              {/* Inline preview */}
+              {shareData.type === 'file' && isPreviewable(shareData.resource.mime_type) && (
+                <div className="rounded-xl overflow-hidden border border-slate-100 bg-slate-50">
+                  <PreviewPanel
+                    mime={shareData.resource.mime_type!}
+                    url={getDownloadUrl()}
+                  />
+                </div>
+              )}
+
+              {shareData.type === 'folder' && (
+                <div className="px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 text-sm text-center">
                   Folder contents can only be accessed by the file owner.
                 </div>
               )}
