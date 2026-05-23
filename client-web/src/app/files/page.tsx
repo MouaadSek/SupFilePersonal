@@ -107,7 +107,7 @@ function Breadcrumb({ crumbs, onNavigate }: { crumbs: Crumb[]; onNavigate: (id: 
             onClick={() => onNavigate(c.id)}
             className={`hover:text-brand transition-colors ${
               i === crumbs.length - 1
-                ? 'text-slate-dark font-semibold cursor-default pointer-events-none'
+                ? 'text-slate-dark dark:text-slate-100 font-semibold cursor-default pointer-events-none'
                 : 'text-slate-mid cursor-pointer'
             }`}
           >
@@ -153,7 +153,7 @@ function NewFolderModal({ onClose, onCreated }: { onClose: () => void; onCreated
           />
           <div className="flex gap-3 justify-end">
             <button type="button" onClick={onClose}
-              className="px-4 py-2 text-sm text-slate-mid hover:text-slate-dark transition">
+              className="px-4 py-2 text-sm text-slate-mid hover:text-slate-dark dark:hover:text-slate-100 transition">
               Cancel
             </button>
             <button type="submit" disabled={!name.trim() || loading}
@@ -227,9 +227,9 @@ function ShareLinkModal({
 
         {createdUrl ? (
           <div className="space-y-4">
-            <div className="p-3 bg-brand-bg rounded-xl">
-              <p className="text-xs text-slate-mid mb-1">Public link created:</p>
-              <p className="text-sm font-mono text-slate-dark break-all">{createdUrl}</p>
+            <div className="p-3 bg-brand-bg dark:bg-slate-700/50 rounded-xl">
+              <p className="text-xs text-slate-mid dark:text-slate-400 mb-1">Public link created:</p>
+              <p className="text-sm font-mono text-slate-dark dark:text-slate-100 break-all">{createdUrl}</p>
             </div>
             <div className="flex gap-2">
               <button onClick={copy}
@@ -239,7 +239,7 @@ function ShareLinkModal({
                 {copied ? 'Copied!' : 'Copy link'}
               </button>
               <button onClick={onClose}
-                className="px-4 py-2.5 text-sm text-slate-mid border border-slate-light rounded-xl hover:border-slate-dark transition">
+                className="px-4 py-2.5 text-sm text-slate-mid dark:text-slate-400 border border-slate-light dark:border-slate-600 rounded-xl hover:border-slate-dark dark:hover:border-slate-400 transition">
                 Done
               </button>
             </div>
@@ -247,15 +247,15 @@ function ShareLinkModal({
         ) : (
           <form onSubmit={submit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-dark mb-1.5">
-                Expires at <span className="text-slate-mid font-normal">(optional)</span>
+              <label className="block text-sm font-medium text-slate-dark dark:text-slate-100 mb-1.5">
+                Expires at <span className="text-slate-mid dark:text-slate-400 font-normal">(optional)</span>
               </label>
               <input type="datetime-local" className="input-field" value={expiry}
                 onChange={(e) => setExpiry(e.target.value)} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-dark mb-1.5">
-                Password <span className="text-slate-mid font-normal">(optional)</span>
+              <label className="block text-sm font-medium text-slate-dark dark:text-slate-100 mb-1.5">
+                Password <span className="text-slate-mid dark:text-slate-400 font-normal">(optional)</span>
               </label>
               <input type="password" className="input-field"
                 placeholder="Leave empty for public access"
@@ -263,7 +263,7 @@ function ShareLinkModal({
             </div>
             <div className="flex gap-3 justify-end pt-1">
               <button type="button" onClick={onClose}
-                className="px-4 py-2 text-sm text-slate-mid hover:text-slate-dark transition">
+                className="px-4 py-2 text-sm text-slate-mid hover:text-slate-dark dark:hover:text-slate-100 transition">
                 Cancel
               </button>
               <button type="submit" disabled={loading}
@@ -334,7 +334,7 @@ function FolderShareModal({
 
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-dark mb-1.5">User email</label>
+            <label className="block text-sm font-medium text-slate-dark dark:text-slate-100 mb-1.5">User email</label>
             <input
               autoFocus
               type="email"
@@ -345,7 +345,7 @@ function FolderShareModal({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-dark mb-1.5">Permission</label>
+            <label className="block text-sm font-medium text-slate-dark dark:text-slate-100 mb-1.5">Permission</label>
             <div className="flex gap-3">
               {(['read', 'write'] as const).map((p) => (
                 <button
@@ -365,7 +365,7 @@ function FolderShareModal({
           </div>
           <div className="flex gap-3 justify-end pt-1">
             <button type="button" onClick={onClose}
-              className="px-4 py-2 text-sm text-slate-mid hover:text-slate-dark transition">
+              className="px-4 py-2 text-sm text-slate-mid hover:text-slate-dark dark:hover:text-slate-100 transition">
               Cancel
             </button>
             <button type="submit" disabled={!email.trim() || loading}
@@ -397,7 +397,7 @@ function TextPreview({ url }: { url: string }) {
     return <div className="w-8 h-8 rounded-full border-4 border-brand border-t-transparent animate-spin" />;
   }
   return (
-    <pre className="text-sm text-slate-dark whitespace-pre-wrap font-mono leading-relaxed">
+    <pre className="text-sm text-slate-dark dark:text-slate-100 whitespace-pre-wrap font-mono leading-relaxed">
       {text}
     </pre>
   );
@@ -450,7 +450,7 @@ function PreviewModal({
     }
     if (mime.startsWith('text/') || mime === 'application/json') {
       return (
-        <div className="w-full max-h-[65vh] overflow-auto bg-slate-50 rounded-xl p-4 border border-slate-light">
+        <div className="w-full max-h-[65vh] overflow-auto bg-slate-50 dark:bg-slate-700 rounded-xl p-4 border border-slate-light dark:border-slate-600">
           <TextPreview url={blobUrl} />
         </div>
       );
@@ -508,8 +508,8 @@ function PreviewModal({
               Download
             </a>
             <button onClick={onClose}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-mid
-                         hover:text-slate-dark hover:bg-slate-light/60 transition text-xl leading-none">
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-mid dark:text-slate-400
+                         hover:text-slate-dark dark:hover:text-slate-100 hover:bg-slate-light/60 dark:hover:bg-slate-700 transition text-xl leading-none">
               ×
             </button>
           </div>
@@ -997,8 +997,8 @@ function FilesPageInner() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowNewFolder(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-light bg-white
-                       text-sm font-medium text-slate-dark hover:border-brand hover:text-brand transition"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-light dark:border-slate-600 bg-white dark:bg-slate-800
+                       text-sm font-medium text-slate-dark dark:text-slate-100 hover:border-brand hover:text-brand transition"
           >
             <IconFolder /> New Folder
           </button>
