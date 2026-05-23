@@ -544,12 +544,12 @@ function FilesPageInner() {
   const [showNewFolder, setShowNewFolder] = useState(false);
 
   // upload
-  const [uploading, setUploading] = useState(false);
-  const [uploadPct, setUploadPct] = useState(0);
+  const [uploadItems, setUploadItems] = useState<{ name: string; pct: number; done: boolean; failed?: boolean }[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [failedFile, setFailedFile] = useState<File | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
+  const uploading = uploadItems.some(i => !i.done);
 
   // drag & drop
   const [draggingFile, setDraggingFile] = useState<FileItem | null>(null);
@@ -569,7 +569,6 @@ function FilesPageInner() {
 
   // desktop drag-to-upload overlay
   const [isDragOver, setIsDragOver] = useState(false);
-  const [currentFileName, setCurrentFileName] = useState<string | null>(null);
 
   // three-dot action menu
   const [activeMenu, setActiveMenu] = useState<{ type: 'file' | 'folder'; id: string } | null>(null);
@@ -757,13 +756,7 @@ function FilesPageInner() {
 
   // ── Upload ───────────────────────────────────────────────────────────────
 
-  const uploadSingleFile = useCallback((file: File): Promise<boolean> => {
-    setUploading(true);
-    setUploadPct(0);
-    setUploadError(null);
-    setFailedFile(null);
-    setCurrentFileName(file.name);
-
+  const uploadSingleFile = useCallback((file: File, onProgress: (pct: number) => void): Promise<boolean> => {
     return new Promise<boolean>((resolve) => {
       const form = new FormData();
       form.append('file', file);
@@ -773,13 +766,10 @@ function FilesPageInner() {
       xhrRef.current = xhr;
 
       xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) setUploadPct(Math.round((e.loaded / e.total) * 100));
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
       };
 
       const cleanup = () => {
-        setUploading(false);
-        setUploadPct(0);
-        setCurrentFileName(null);
         xhrRef.current = null;
         if (fileInput.current) fileInput.current.value = '';
       };
@@ -834,15 +824,34 @@ function FilesPageInner() {
   async function retryUpload() {
     if (!failedFile) return;
     const file = failedFile;
-    await uploadSingleFile(file);
+    setFailedFile(null);
+    setUploadError(null);
+    setUploadItems([{ name: file.name, pct: 0, done: false }]);
+    const ok = await uploadSingleFile(file, (pct) => {
+      setUploadItems([{ name: file.name, pct, done: false }]);
+    });
+    setUploadItems([{ name: file.name, pct: ok ? 100 : 0, done: true, failed: !ok }]);
+    setTimeout(() => setUploadItems([]), 2000);
     load(folderId);
   }
 
   async function handleUpload(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    await uploadSingleFile(file);
+    const fileList = Array.from(e.target.files ?? []);
+    if (!fileList.length) return;
+    setUploadError(null);
+    setFailedFile(null);
+    setUploadItems(fileList.map(f => ({ name: f.name, pct: 0, done: false })));
+    for (let i = 0; i < fileList.length; i++) {
+      const ok = await uploadSingleFile(fileList[i], (pct) => {
+        setUploadItems(prev => prev.map((item, idx) => idx === i ? { ...item, pct } : item));
+      });
+      setUploadItems(prev => prev.map((item, idx) =>
+        idx === i ? { ...item, pct: ok ? 100 : item.pct, done: true, failed: !ok } : item
+      ));
+      if (!ok) break;
+    }
     load(folderId);
+    setTimeout(() => setUploadItems([]), 2000);
   }
 
   // ── Drag & drop ──────────────────────────────────────────────────────────
@@ -908,10 +917,20 @@ function FilesPageInner() {
     if (draggingFile) return;
     const dropped = Array.from(e.dataTransfer.files);
     if (!dropped.length) return;
-    for (const file of dropped) {
-      await uploadSingleFile(file);
+    setUploadError(null);
+    setFailedFile(null);
+    setUploadItems(dropped.map(f => ({ name: f.name, pct: 0, done: false })));
+    for (let i = 0; i < dropped.length; i++) {
+      const ok = await uploadSingleFile(dropped[i], (pct) => {
+        setUploadItems(prev => prev.map((item, idx) => idx === i ? { ...item, pct } : item));
+      });
+      setUploadItems(prev => prev.map((item, idx) =>
+        idx === i ? { ...item, pct: ok ? 100 : item.pct, done: true, failed: !ok } : item
+      ));
+      if (!ok) break;
     }
     load(folderId);
+    setTimeout(() => setUploadItems([]), 2000);
   }
 
   // ── Preview ──────────────────────────────────────────────────────────────
@@ -1001,34 +1020,47 @@ function FilesPageInner() {
           <label className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-white
                             text-sm font-medium cursor-pointer hover:bg-brand-light transition">
             <IconUpload />
-            {uploading ? `${uploadPct}%` : 'Upload'}
-            <input ref={fileInput} type="file" className="hidden" onChange={handleUpload} />
+            {uploading
+              ? `${uploadItems.filter(i => i.done).length}/${uploadItems.length}`
+              : 'Upload'}
+            <input ref={fileInput} type="file" multiple className="hidden" onChange={handleUpload} />
           </label>
         </div>
       </div>
 
-      {/* Upload progress */}
-      {uploading && (
-        <div className="mb-4">
-          <div className="flex items-center justify-between text-xs text-slate-mid mb-1.5">
-            <span>Uploading{currentFileName ? ` "${currentFileName}"` : ''}…</span>
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-brand">{uploadPct}%</span>
-              <button
-                onClick={cancelUpload}
-                className="px-2 py-0.5 rounded-md border border-red-300 text-red-500
-                           hover:bg-red-50 transition text-xs"
-              >
-                Cancel
-              </button>
+      {/* Upload progress — per-file rows */}
+      {uploadItems.length > 0 && (
+        <div className="mb-4 bg-white dark:bg-slate-800 border border-slate-light dark:border-slate-700
+                        rounded-2xl p-4 space-y-3">
+          {uploadItems.map((item, i) => (
+            <div key={i}>
+              <div className="flex items-center justify-between text-xs mb-1.5">
+                <span className="text-slate-dark dark:text-slate-100 font-medium truncate max-w-xs">{item.name}</span>
+                <div className="flex items-center gap-2 shrink-0 ml-3">
+                  {item.done ? (
+                    item.failed
+                      ? <span className="text-red-500">Failed</span>
+                      : <span className="text-green-500">Done</span>
+                  ) : (
+                    <>
+                      <span className="font-medium text-brand">{item.pct}%</span>
+                      {!uploadItems.slice(0, i).some(x => !x.done) && (
+                        <button onClick={cancelUpload}
+                          className="px-2 py-0.5 rounded-md border border-red-300 text-red-500 hover:bg-red-50 transition text-xs">
+                          Cancel
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className="h-1.5 bg-slate-light/60 dark:bg-slate-700 rounded-full overflow-hidden">
+                <div className={`h-full rounded-full transition-all duration-150 ${
+                  item.failed ? 'bg-red-400' : item.done ? 'bg-green-500' : 'bg-brand'
+                }`} style={{ width: `${item.pct}%` }} />
+              </div>
             </div>
-          </div>
-          <div className="h-2 bg-slate-light/60 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-brand rounded-full transition-all duration-150"
-              style={{ width: `${uploadPct}%` }}
-            />
-          </div>
+          ))}
         </div>
       )}
 
@@ -1245,7 +1277,7 @@ function FilesPageInner() {
                 <label className="flex items-center gap-2 px-5 py-2.5 bg-brand text-white rounded-xl
                                   text-sm font-medium cursor-pointer hover:bg-brand-light transition">
                   <IconUpload /> Upload a file
-                  <input type="file" className="hidden" onChange={handleUpload} />
+                  <input type="file" multiple className="hidden" onChange={handleUpload} />
                 </label>
                 <button onClick={() => setShowNewFolder(true)}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-light dark:border-slate-600
