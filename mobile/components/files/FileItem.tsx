@@ -1,12 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Folder, MoreVertical, Check } from 'lucide-react-native';
+import { MoreVertical, Check } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FileItem as FileItemType } from '@/types';
 import { formatFileSize, formatDate } from '@/utils/format';
-import { isImageFile } from '@/utils/mimeFromFilename';
-import { FileThumbnail } from './FileThumbnail';
-import { FileExtensionBadge } from './FileExtensionBadge';
+import { folderChildCount, formatFolderChildLabel } from '@/utils/fileTree';
+import { FileListPreview } from './FileListPreview';
 import { FontSize, Spacing, BorderRadius } from '@/constants/theme';
 
 interface FileItemProps {
@@ -16,6 +15,8 @@ interface FileItemProps {
   onMenuPress: () => void;
   isSelected: boolean;
   viewMode: 'list' | 'grid';
+  /** Pour synchroniser le compteur dossier avec le cache. */
+  allFiles?: FileItemType[];
 }
 
 export function FileItemComponent({
@@ -25,28 +26,9 @@ export function FileItemComponent({
   onMenuPress,
   isSelected,
   viewMode,
+  allFiles = [],
 }: FileItemProps) {
   const { colors } = useTheme();
-
-  const listFallback = () => {
-    if (item.type === 'folder') {
-      return <Folder size={24} color={colors.primary} />;
-    }
-    return <FileExtensionBadge file={item} size="sm" />;
-  };
-
-  const gridFallback = () => {
-    if (item.type === 'folder') {
-      return (
-        <View style={[styles.gridIconContainer, { backgroundColor: colors.primaryLight }]}>
-          <Folder size={40} color={colors.primary} />
-        </View>
-      );
-    }
-    return <FileExtensionBadge file={item} size="md" />;
-  };
-
-  const showImageThumb = item.type === 'file' && isImageFile(item);
 
   if (viewMode === 'grid') {
     return (
@@ -60,11 +42,11 @@ export function FileItemComponent({
         onLongPress={onLongPress}
         activeOpacity={0.7}
       >
-        {isSelected && (
+        {isSelected ? (
           <View style={[styles.selectedBadge, { backgroundColor: colors.primary }]}>
             <Check size={12} color="#ffffff" />
           </View>
-        )}
+        ) : null}
         <TouchableOpacity
           style={styles.menuButton}
           onPress={onMenuPress}
@@ -72,22 +54,14 @@ export function FileItemComponent({
         >
           <MoreVertical size={16} color={colors.textSecondary} />
         </TouchableOpacity>
-        {showImageThumb ? (
-          <FileThumbnail
-            item={item}
-            style={styles.gridThumbnail}
-            containerStyle={styles.gridThumbnailWrap}
-            fallback={gridFallback()}
-          />
-        ) : (
-          gridFallback()
-        )}
-        
+        <FileListPreview item={item} size="md" containerStyle={styles.gridPreview} />
         <Text style={[styles.gridName, { color: colors.text }]} numberOfLines={2}>
           {item.name}
         </Text>
         <Text style={[styles.gridMeta, { color: colors.textSecondary }]}>
-          {item.type === 'folder' ? 'Dossier' : formatFileSize(item.size || 0)}
+          {item.type === 'folder'
+            ? formatFolderChildLabel(folderChildCount(item, allFiles))
+            : formatFileSize(item.size || 0)}
         </Text>
       </TouchableOpacity>
     );
@@ -104,32 +78,25 @@ export function FileItemComponent({
       onLongPress={onLongPress}
       activeOpacity={0.7}
     >
-      {isSelected && (
+      {isSelected ? (
         <View style={[styles.listSelectedIndicator, { backgroundColor: colors.primary }]}>
           <Check size={14} color="#ffffff" />
         </View>
-      )}
-      
-      <View style={[styles.listIconContainer, { backgroundColor: isSelected ? colors.primary + '20' : colors.primaryLight }]}>
-        {showImageThumb ? (
-          <FileThumbnail item={item} style={styles.listThumbnail} fallback={listFallback()} />
-        ) : (
-          listFallback()
-        )}
-      </View>
-      
+      ) : null}
+
+      <FileListPreview item={item} size="sm" containerStyle={styles.listPreview} />
+
       <View style={styles.listContent}>
         <Text style={[styles.listName, { color: colors.text }]} numberOfLines={1}>
           {item.name}
         </Text>
         <Text style={[styles.listMeta, { color: colors.textSecondary }]}>
-          {item.type === 'folder' 
-            ? `Dossier - ${formatDate(item.modifiedAt)}`
-            : `${formatFileSize(item.size || 0)} - ${formatDate(item.modifiedAt)}`
-          }
+          {item.type === 'folder'
+            ? `${formatFolderChildLabel(folderChildCount(item, allFiles))} · ${formatDate(item.modifiedAt)}`
+            : `${formatFileSize(item.size || 0)} · ${formatDate(item.modifiedAt)}`}
         </Text>
       </View>
-      
+
       <TouchableOpacity
         onPress={onMenuPress}
         style={styles.listMenuButton}
@@ -142,7 +109,6 @@ export function FileItemComponent({
 }
 
 const styles = StyleSheet.create({
-  // Grid styles
   gridItem: {
     width: '47%',
     borderRadius: BorderRadius.lg,
@@ -167,27 +133,7 @@ const styles = StyleSheet.create({
     right: Spacing.sm,
     zIndex: 1,
   },
-  gridIconContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: BorderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: Spacing.md,
-    marginBottom: Spacing.md,
-  },
-  gridThumbnailWrap: {
-    width: 72,
-    height: 72,
-    borderRadius: BorderRadius.md,
-    marginTop: Spacing.md,
-    marginBottom: Spacing.md,
-    overflow: 'hidden',
-  },
-  gridThumbnail: {
-    width: 72,
-    height: 72,
-    borderRadius: BorderRadius.md,
+  gridPreview: {
     marginTop: Spacing.md,
     marginBottom: Spacing.md,
   },
@@ -200,8 +146,6 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xs,
     marginTop: Spacing.xs,
   },
-  
-  // List styles
   listItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -220,17 +164,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  listIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: BorderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  listThumbnail: {
-    width: 44,
-    height: 44,
+  listPreview: {
+    marginRight: 0,
   },
   listContent: {
     flex: 1,

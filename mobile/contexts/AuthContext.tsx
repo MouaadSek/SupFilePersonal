@@ -14,6 +14,7 @@ import {
   apiMe,
   apiGoogleAuth,
   apiForgotPassword,
+  type AuthResponse,
 } from '@/services/api/auth';
 import { apiUpdateProfile, apiChangePassword, apiUploadAvatar } from '@/services/api/users';
 import { mapApiUser } from '@/services/api/mappers';
@@ -33,6 +34,7 @@ interface AuthContextType {
   isInitializing: boolean;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   loginWithGoogle: (idToken: string, rememberMe?: boolean) => Promise<void>;
+  loginWithOAuthToken: (token: string, rememberMe?: boolean) => Promise<void>;
   register: (email: string, password: string, name: string, rememberMe?: boolean) => Promise<void>;
   requestPasswordReset: (email: string) => Promise<{ message: string; dev_reset_token?: string }>;
   logout: () => Promise<void>;
@@ -92,9 +94,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshUser]);
 
   const completeAuth = useCallback(
-    async (token: string, rememberMe: boolean) => {
-      await storeSession(token, rememberMe);
-      await refreshUser();
+    async (auth: Pick<AuthResponse, 'token' | 'user'>, rememberMe: boolean) => {
+      await storeSession(auth.token, rememberMe);
+      setUser(mapApiUser(auth.user));
+      try {
+        await refreshUser();
+      } catch {
+        /* garde l’utilisateur renvoyé par login/register si /auth/me échoue */
+      }
     },
     [refreshUser],
   );
@@ -102,8 +109,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string, rememberMe = true) => {
     setIsLoading(true);
     try {
-      const { token } = await apiLogin(email, password);
-      await completeAuth(token, rememberMe);
+      const auth = await apiLogin(email, password);
+      await completeAuth(auth, rememberMe);
     } finally {
       setIsLoading(false);
     }
@@ -112,8 +119,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginWithGoogle = async (idToken: string, rememberMe = true) => {
     setIsLoading(true);
     try {
-      const { token } = await apiGoogleAuth(idToken);
-      await completeAuth(token, rememberMe);
+      const auth = await apiGoogleAuth(idToken);
+      await completeAuth(auth, rememberMe);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loginWithOAuthToken = async (token: string, rememberMe = true) => {
+    setIsLoading(true);
+    try {
+      await storeSession(token, rememberMe);
+      await refreshUser();
     } finally {
       setIsLoading(false);
     }
@@ -122,8 +139,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (email: string, password: string, name: string, rememberMe = true) => {
     setIsLoading(true);
     try {
-      const { token } = await apiRegister(email, password, name);
-      await completeAuth(token, rememberMe);
+      const auth = await apiRegister(email, password, name);
+      await completeAuth(auth, rememberMe);
     } finally {
       setIsLoading(false);
     }
@@ -190,6 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isInitializing,
         login,
         loginWithGoogle,
+        loginWithOAuthToken,
         register,
         requestPasswordReset,
         logout,

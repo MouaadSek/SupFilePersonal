@@ -24,8 +24,8 @@ export async function loadStoredToken(): Promise<string | null> {
   return stored;
 }
 
+/** Persist JWT to device storage only (does not change in-memory token). */
 export async function persistToken(token: string | null): Promise<void> {
-  authToken = token;
   if (token) {
     await AsyncStorage.setItem(AUTH_TOKEN_KEY, token);
   } else {
@@ -90,21 +90,34 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     payload = JSON.stringify(body);
   }
 
-  const res = await fetch(apiUrl(path), {
-    method,
-    headers: reqHeaders,
-    body: payload,
-  });
+  let res: Response;
+  try {
+    res = await fetch(apiUrl(path), {
+      method,
+      headers: reqHeaders,
+      body: payload,
+    });
+  } catch {
+    throw new ApiError(
+      'Impossible de joindre le serveur. Vérifiez EXPO_PUBLIC_API_URL et que l’API tourne.',
+      0,
+    );
+  }
 
   const contentType = res.headers.get('content-type') || '';
   const isJson = contentType.includes('application/json');
   const data = isJson ? await res.json().catch(() => null) : null;
 
   if (!res.ok) {
-    const message =
-      (data && typeof data === 'object' && 'error' in data && String((data as { error: string }).error)) ||
-      res.statusText ||
-      'Request failed';
+    let message = res.statusText || 'Échec de la requête';
+    if (data && typeof data === 'object') {
+      const body = data as { error?: string; errors?: { message?: string }[] };
+      if (body.error) {
+        message = String(body.error);
+      } else if (Array.isArray(body.errors) && body.errors.length > 0) {
+        message = body.errors.map((e) => e.message).filter(Boolean).join('; ');
+      }
+    }
     throw new ApiError(message, res.status, data);
   }
 

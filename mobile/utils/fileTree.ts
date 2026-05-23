@@ -39,17 +39,31 @@ export function buildPathForItem(parentId: string | null, name: string, all: Fil
   const parentPath = parentId
     ? all.find((f) => f.id === parentId && isActive(f))?.path ?? ''
     : '';
-  const joined = parentPath ? `${parentPath}/${name}` : `/${name}`;
-  return joined.replace(/\/+/g, '/');
+  if (!parentPath) return `/${name}`;
+  return `${parentPath}/${name}`.replace(/\/+/g, '/');
 }
 
-/** Racines visibles à la corbeille : supprimé et le parent n’est pas supprimé dans le même groupe. */
 export function trashRootItems(all: FileItem[]): FileItem[] {
   const trashed = all.filter((f) => f.deletedAt);
-  return trashed.filter((item) => {
-    if (!item.parentId) return true;
-    const parent = all.find((p) => p.id === item.parentId);
-    if (!parent?.deletedAt) return true;
-    return parent.deleteGroupId !== item.deleteGroupId;
-  });
+  const roots: FileItem[] = [];
+  for (const item of trashed) {
+    if (!item.parentId || !trashed.some((p) => p.id === item.parentId)) {
+      roots.push(item);
+    }
+  }
+  return roots;
+}
+
+/** Nombre d’éléments directs dans un dossier (API prioritaire, sinon cache local). */
+export function folderChildCount(folder: FileItem, all: FileItem[]): number {
+  const local = all.filter((f) => isActive(f) && f.parentId === folder.id).length;
+  const fromApi = folder.itemCount;
+  if (typeof fromApi === 'number' && fromApi >= 0) {
+    return Math.max(fromApi, local);
+  }
+  return local;
+}
+
+export function formatFolderChildLabel(count: number): string {
+  return count <= 1 ? `${count} élément` : `${count} éléments`;
 }

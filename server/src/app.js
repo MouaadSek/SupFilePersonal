@@ -34,6 +34,7 @@ app.use('/files',     fileRoutes);
 app.use('/folders',   folderRoutes);
 app.use('/shares',    shareRoutes);
 app.use('/dashboard', dashboardRoutes);
+app.use('/trash',     require('./routes/trash'));
 app.use('/search',    require('./routes/search'));
 app.use('/users',     require('./routes/users'));
 

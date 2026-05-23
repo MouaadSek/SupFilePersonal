@@ -100,6 +100,7 @@ interface FilesContextType {
   ) => Promise<FileItem | null>;
   dismissCompletedUploads: () => void;
   refreshCurrentFolder: () => Promise<void>;
+  refreshRootListing: () => Promise<void>;
   refreshShares: () => Promise<void>;
   cancelUploadJob: (jobId: string) => void;
   getFileById: (fileId: string) => FileItem | undefined;
@@ -188,15 +189,23 @@ export function FilesProvider({ children }: { children: ReactNode }) {
       return;
     }
     void (async () => {
+      setIsLoading(true);
       try {
-        setIsLoading(true);
         await fetchListing(null);
+      } catch (err) {
+        showApiError(err, 'Impossible de charger vos fichiers.');
+      }
+      try {
         await loadTrash();
+      } catch {
+        /* corbeille optionnelle — ne bloque pas la connexion */
+      }
+      try {
         const [links, incoming] = await Promise.all([apiListShares(), apiSharedWithMe()]);
         setShareLinks(links.map(mapApiShare));
         setIncomingShares(incoming.map(mapIncomingShare));
-      } catch (err) {
-        showApiError(err, 'Impossible de charger vos fichiers.');
+      } catch {
+        /* partages optionnels au premier chargement */
       } finally {
         setIsLoading(false);
       }
@@ -472,6 +481,15 @@ export function FilesProvider({ children }: { children: ReactNode }) {
     }
   }, [currentFolder, fetchListing, isAuthenticated]);
 
+  const refreshRootListing = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      await fetchListing(null);
+    } catch {
+      /* silencieux — rafraîchissement depuis l’accueil */
+    }
+  }, [fetchListing, isAuthenticated]);
+
   const refreshShares = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
@@ -672,6 +690,7 @@ export function FilesProvider({ children }: { children: ReactNode }) {
         enqueueUploadWithProgress,
         dismissCompletedUploads,
         refreshCurrentFolder,
+        refreshRootListing,
         refreshShares,
         cancelUploadJob,
         getFileById,

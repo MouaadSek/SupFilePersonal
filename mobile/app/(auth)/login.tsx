@@ -15,6 +15,8 @@ import {
   AuthBrandedLayout,
   AuthTextField,
   AuthPrimaryButton,
+  AuthGoogleButton,
+  AuthDivider,
 } from '@/components/auth';
 import { AuthBranded } from '@/constants/authBranded';
 import { FontSize, Spacing } from '@/constants/theme';
@@ -139,6 +141,10 @@ export default function LoginScreen() {
           onPress={() => void handleLogin()}
           loading={isLoading}
         />
+
+        <AuthDivider />
+
+        <AuthGoogleButton disabled={isLoading} />
       </AuthBrandedLayout>
     </SafeAreaView>
   );

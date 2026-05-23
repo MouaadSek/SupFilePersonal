@@ -29,12 +29,12 @@ import {
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFiles } from '@/contexts/FilesContext';
-import { Logo, UploadProgress, BottomSheet } from '@/components/ui';
+import { UploadProgress, BottomSheet } from '@/components/ui';
 import { CreateFolderModal } from '@/components/files';
 import { StorageBreakdownChart } from '@/components/dashboard';
-import { formatFileSize, formatDate, getFileColor } from '@/utils/format';
+import { formatFileSize, formatDate } from '@/utils/format';
 import { apiDashboardHome } from '@/services/api/dashboard';
-import { mapApiBreakdownSegments } from '@/services/api/mappers';
+import { mapApiBreakdownSegments, mapApiFile } from '@/services/api/mappers';
 import type { Activity } from '@/types';
 import { FontSize, Spacing, BorderRadius } from '@/constants/theme';
 import { FileItem } from '@/types';
@@ -48,8 +48,8 @@ import {
   lastActivityLabel,
   lastActivityTimestamp,
 } from '@/utils/dashboardStorage';
-import { FileThumbnail, FileExtensionBadge } from '@/components/files';
-import { isImageFile, effectiveMimeTypeForFile } from '@/utils/mimeFromFilename';
+import { FileListPreview } from '@/components/files';
+import { folderChildCount, formatFolderChildLabel } from '@/utils/fileTree';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -65,6 +65,7 @@ export default function HomeScreen() {
     uploadJobs,
     dismissCompletedUploads,
     cancelUploadJob,
+    refreshRootListing,
   } = useFiles();
   const [newMenuVisible, setNewMenuVisible] = useState(false);
   const [createFolderVisible, setCreateFolderVisible] = useState(false);
@@ -135,6 +136,7 @@ export default function HomeScreen() {
   };
 
   const [recentActivities, setRecentActivities] = useState<Activity[]>([]);
+  const [apiRecentFiles, setApiRecentFiles] = useState<FileItem[]>([]);
   const [breakdownSegments, setBreakdownSegments] = useState<
     ReturnType<typeof mapApiBreakdownSegments>
   >([]);
@@ -142,23 +144,27 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       if (!user) return;
+      void refreshRootListing();
       void apiDashboardHome()
         .then((home) => {
           setBreakdownSegments(mapApiBreakdownSegments(home.breakdown));
+          setApiRecentFiles(
+            (home.recent ?? []).map((f) => mapApiFile(f, f.folder_id ? `/${f.name}` : `/${f.name}`)),
+          );
           setRecentActivities(
-            home.recent.map((f, i) => ({
+            (home.recent ?? []).map((f, i) => ({
               id: f.id || `recent-${i}`,
               type: 'upload' as const,
               fileName: f.name,
               fileId: f.id,
-              timestamp: new Date(f.updated_at || f.created_at),
+              timestamp: new Date(f.updated_at || f.created_at || Date.now()),
             })),
           );
         })
         .catch(() => {
           /* keep computed fallback from local files */
         });
-    }, [user]),
+    }, [user, refreshRootListing]),
   );
 
   const storageUsed = user?.storageUsed ?? 0;
@@ -166,14 +172,15 @@ export default function HomeScreen() {
   const storagePercentage = (storageUsed / storageTotal) * 100;
 
   const recentFiles = useMemo(() => {
-    if (recentActivities.length > 0) {
-      return recentActivities
-        .map((a) => files.find((f) => f.id === a.fileId && !f.deletedAt))
-        .filter((f): f is FileItem => !!f)
-        .slice(0, 5);
-    }
-    return getRecentFilesForDashboard(files, 5);
-  }, [files, recentActivities]);
+    const source =
+      apiRecentFiles.length > 0
+        ? apiRecentFiles.map((apiF) => {
+            const cached = files.find((f) => f.id === apiF.id && !f.deletedAt);
+            return cached ?? apiF;
+          })
+        : getRecentFilesForDashboard(files, 5);
+    return source.slice(0, 5);
+  }, [files, apiRecentFiles]);
 
   const folders = files.filter((f) => !f.deletedAt && f.type === 'folder' && f.parentId === null);
 
@@ -253,15 +260,12 @@ export default function HomeScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text style={[styles.greeting, { color: colors.textSecondary }]}>
-              Bonjour,
-            </Text>
-            <Text style={[styles.userName, { color: colors.text }]}>
-              {user?.name || 'Utilisateur'}
-            </Text>
-          </View>
-          <Logo size="sm" showText={false} />
+          <Text style={[styles.greeting, { color: colors.textSecondary }]}>
+            Bonjour,
+          </Text>
+          <Text style={[styles.userName, { color: colors.text }]}>
+            {user?.name || 'Utilisateur'}
+          </Text>
         </View>
 
         {/* Tableau de bord — état du compte */}
@@ -334,7 +338,7 @@ export default function HomeScreen() {
                   {folder.name}
                 </Text>
                 <Text style={[styles.folderInfo, { color: colors.textSecondary }]}>
-                  {files.filter((f) => !f.deletedAt && f.parentId === folder.id).length} elements
+                  {formatFolderChildLabel(folderChildCount(folder, files))}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -380,17 +384,11 @@ export default function HomeScreen() {
                 })
               }
             >
-              <FileThumbnail
+              <FileListPreview
                 item={file}
-                style={styles.fileIconImage}
+                size="sm"
                 containerStyle={[styles.fileIcon, { backgroundColor: colors.primaryLight }]}
-                fallback={
-                  isImageFile(file) ? (
-                    <Image size={20} color={getFileColor(effectiveMimeTypeForFile(file))} />
-                  ) : (
-                    <FileExtensionBadge file={file} size="sm" />
-                  )
-                }
+                imageStyle={styles.fileIconImage}
               />
               <View style={styles.fileInfo}>
                 <Text
@@ -432,7 +430,7 @@ export default function HomeScreen() {
                   {activity.type === 'rename' && 'Renomme: '}
                   {activity.type === 'delete' && 'Supprime: '}
                   {activity.type === 'move' && 'Deplace: '}
-                  <Text style={{ fontWeight: '600' }}>{activity.fileName}</Text>
+                  <Text style={{ fontWeight: '600' }}>{activity.fileName ?? 'Fichier'}</Text>
                 </Text>
                 <Text style={[styles.activityTime, { color: colors.textSecondary }]}>
                   {formatDate(activity.timestamp)}
@@ -495,9 +493,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.lg,

@@ -1,9 +1,19 @@
 export function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 o';
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 o';
   const k = 1024;
   const sizes = ['o', 'Ko', 'Mo', 'Go', 'To'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  const i = Math.min(
+    sizes.length - 1,
+    Math.max(0, Math.floor(Math.log(bytes) / Math.log(k))),
+  );
+  const value = bytes / k ** i;
+  const decimals = i <= 1 ? 0 : value < 10 ? 1 : 0;
+  return `${parseFloat(value.toFixed(decimals))} ${sizes[i]}`;
+}
+
+/** Utilisé / quota — même logique d’unité (évite « 0 Go » puis détails en Mo). */
+export function formatStoragePair(usedBytes: number, totalBytes: number): string {
+  return `${formatFileSize(usedBytes)} / ${formatFileSize(totalBytes)}`;
 }
 
 export function formatDate(date: Date): string {

@@ -59,11 +59,15 @@ passport.use(new GoogleStrategy(
 
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:4000';
 
-// GET /auth/oauth/google
-router.get('/google', passport.authenticate('google', {
-  scope: ['profile', 'email'],
-  session: false,
-}));
+// GET /auth/oauth/google  (?mobile=1 → redirect to app scheme)
+router.get('/google', (req, res, next) => {
+  const state = req.query.mobile === '1' ? 'mobile' : 'web';
+  passport.authenticate('google', { scope: ['profile', 'email'], session: false, state })(
+    req,
+    res,
+    next,
+  );
+});
 
 // GET /auth/oauth/google/callback
 router.get('/google/callback', (req, res, next) => {
@@ -72,6 +76,11 @@ router.get('/google/callback', (req, res, next) => {
       return res.redirect(`${CLIENT_ORIGIN}/login?error=oauth_failed`);
     }
     const token = signToken(user);
+    if (req.query.state === 'mobile') {
+      const mobileRedirect = process.env.MOBILE_OAUTH_REDIRECT || 'supfile://auth';
+      const sep = mobileRedirect.includes('?') ? '&' : '?';
+      return res.redirect(`${mobileRedirect}${sep}token=${encodeURIComponent(token)}`);
+    }
     return res.redirect(`${CLIENT_ORIGIN}/login?token=${encodeURIComponent(token)}`);
   })(req, res, next);
 });

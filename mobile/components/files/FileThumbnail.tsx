@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Image, ActivityIndicator, StyleSheet, type StyleProp, type ViewStyle, type ImageStyle } from 'react-native';
 import type { FileItem } from '@/types';
 import { useCachedMediaUri } from '@/hooks/useCachedMediaUri';
@@ -16,7 +16,12 @@ type FileThumbnailProps = {
 /** Miniature image (liste / grille) avec cache authentifié pour les fichiers serveur. */
 export function FileThumbnail({ item, style, containerStyle, fallback }: FileThumbnailProps) {
   const { colors } = useTheme();
+  const [imageFailed, setImageFailed] = useState(false);
   const showThumb = isImageFile(item);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [item.id, item.thumbnail, item.localUri]);
   const authPreview =
     item.type === 'file' && item.id ? fileAuthenticatedPreviewUrl(item.id) : undefined;
   const directUri = showThumb
@@ -29,11 +34,11 @@ export function FileThumbnail({ item, style, containerStyle, fallback }: FileThu
 
   const needsRemote = showThumb && !uri && hasRemotePreviewSource(item) && !item.localUri;
 
-  if (!showThumb || !uri) {
+  if (!showThumb || !uri || imageFailed) {
     return (
       <View style={[styles.wrap, containerStyle]}>
         {fallback}
-        {needsRemote ? (
+        {needsRemote && !imageFailed ? (
           <View style={styles.loader} pointerEvents="none">
             <ActivityIndicator size="small" color={colors.primary} />
           </View>
@@ -44,7 +49,12 @@ export function FileThumbnail({ item, style, containerStyle, fallback }: FileThu
 
   return (
     <View style={[styles.wrap, containerStyle]}>
-      <Image source={{ uri }} style={style} resizeMode="cover" />
+      <Image
+        source={{ uri }}
+        style={style}
+        resizeMode="cover"
+        onError={() => setImageFailed(true)}
+      />
     </View>
   );
 }

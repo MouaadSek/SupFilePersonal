@@ -16,6 +16,8 @@ import {
   AuthBrandedLayout,
   AuthTextField,
   AuthPrimaryButton,
+  AuthGoogleButton,
+  AuthDivider,
 } from '@/components/auth';
 import { AuthBranded } from '@/constants/authBranded';
 import { FontSize, Spacing } from '@/constants/theme';
@@ -181,6 +183,10 @@ export default function RegisterScreen() {
           onPress={() => void handleRegister()}
           loading={isLoading}
         />
+
+        <AuthDivider />
+
+        <AuthGoogleButton disabled={isLoading} />
 
         <Text style={styles.terms}>
           En vous inscrivant, vous acceptez nos{' '}

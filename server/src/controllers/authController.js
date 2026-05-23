@@ -1,6 +1,10 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { query } = require('../db');
+const {
+  verifyGoogleIdToken,
+  findOrCreateGoogleUser,
+} = require('../services/googleUserService');
 
 const BCRYPT_COST = 12;
 
@@ -78,4 +82,23 @@ async function me(req, res, next) {
   }
 }
 
-module.exports = { register, login, me };
+// POST /auth/google — mobile id_token
+async function googleAuth(req, res, next) {
+  try {
+    const { id_token } = req.body;
+    const profile = await verifyGoogleIdToken(id_token);
+    const user = await findOrCreateGoogleUser({
+      googleId: profile.googleId,
+      email: profile.email,
+      displayName: profile.displayName,
+      avatarUrl: profile.avatarUrl,
+    });
+    const { password_hash: _, ...safeUser } = user;
+    return res.json({ token: signToken(user), user: safeUser });
+  } catch (err) {
+    if (err.status === 401) return res.status(401).json({ error: err.message });
+    next(err);
+  }
+}
+
+module.exports = { register, login, me, googleAuth };
