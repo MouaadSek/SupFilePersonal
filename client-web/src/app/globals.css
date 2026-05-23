@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
 
 :root {
   --brand:       #2da2fd;
@@ -13,22 +13,22 @@
   --text-mid:    #858c92;
   --border:      #cdd0d3;
 
-  /* shadcn/ui tokens — mapped to SupFile brand palette */
-  --background:             210 44% 95%;   /* brand-bg #edf3f9  */
-  --foreground:             203 20% 26%;   /* slate-dark #364751 */
-  --primary:                207 98% 58%;   /* brand #2da2fd     */
+  /* shadcn/ui tokens */
+  --background:             210 44% 95%;
+  --foreground:             203 20% 26%;
+  --primary:                207 98% 58%;
   --primary-foreground:     0 0% 100%;
   --secondary:              210 44% 92%;
   --secondary-foreground:   203 20% 26%;
   --muted:                  210 44% 92%;
-  --muted-foreground:       210 5% 55%;    /* slate-mid #858c92 */
-  --accent:                 208 97% 82%;   /* brand-pale #a5d3fe */
+  --muted-foreground:       210 5% 55%;
+  --accent:                 208 97% 82%;
   --accent-foreground:      203 20% 26%;
   --destructive:            0 84% 60%;
   --destructive-foreground: 0 0% 100%;
-  --border:                 210 5% 82%;    /* slate-light #cdd0d3 */
+  --border:                 210 5% 82%;
   --input:                  210 5% 82%;
-  --ring:                   207 98% 58%;   /* brand #2da2fd     */
+  --ring:                   207 98% 58%;
   --radius:                 0.75rem;
 }
 
@@ -53,29 +53,72 @@
 * { box-sizing: border-box; }
 
 body {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'DM Sans', system-ui, sans-serif;
   background-color: var(--brand-bg);
   color: var(--text-dark);
   -webkit-font-smoothing: antialiased;
 }
 
+/* ── Animations ─────────────────────────────────────────────── */
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes blobDrift {
+  0%, 100% { transform: translate(-30%, -30%) scale(1); }
+  50%       { transform: translate(-27%, -33%) scale(1.06); }
+}
+
+@keyframes blobDrift2 {
+  0%, 100% { transform: translate(30%, 30%) scale(1); }
+  50%       { transform: translate(33%, 27%) scale(1.06); }
+}
+
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position: 200% 0; }
+}
+
+/* ── Global transitions ─────────────────────────────────────── */
+
+@layer base {
+  a, button {
+    transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+    transition-duration: 200ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+/* ── Utility classes ────────────────────────────────────────── */
+
+.page-enter {
+  animation: fadeSlideIn 0.25s ease-out both;
+}
+
+.blob-drift  { animation: blobDrift  12s ease-in-out infinite; }
+.blob-drift2 { animation: blobDrift2 15s ease-in-out infinite; }
+
+/* ── Component layer ────────────────────────────────────────── */
+
 @layer components {
   .btn-primary {
-    @apply w-full py-3 rounded-xl font-semibold text-white transition-all duration-200
+    @apply w-full py-3 rounded-xl font-semibold text-white
            bg-brand hover:bg-brand-light active:scale-95 focus:outline-none
            focus:ring-2 focus:ring-brand focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
   .input-field {
     @apply w-full px-4 py-3 rounded-xl border border-slate-light bg-white text-slate-dark
-           placeholder-slate-mid text-sm transition focus:outline-none
-           focus:ring-2 focus:ring-brand focus:border-brand
+           placeholder-slate-mid text-sm focus:outline-none
+           focus:ring-2 focus:ring-brand focus:border-brand focus:shadow-sm
            dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100
            dark:placeholder-slate-400 dark:focus:border-brand;
   }
 
   .auth-card {
-    @apply bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-light
-           dark:border-slate-700 p-8 w-full max-w-md;
+    @apply backdrop-blur-xl bg-white/90 dark:bg-slate-800/90 rounded-2xl shadow-lg
+           shadow-brand/5 border border-white/40 dark:border-slate-700/60 p-8 w-full max-w-md;
   }
 }
