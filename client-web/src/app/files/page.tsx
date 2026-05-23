@@ -1210,9 +1210,20 @@ function FilesPageInner() {
                           className={`flex items-center gap-3 sm:gap-4 px-3 sm:px-5 py-3.5 hover:bg-brand-bg/50 dark:hover:bg-slate-700/50 transition group
                                       ${i !== searchFiles.length - 1 ? 'border-b border-slate-light/60 dark:border-slate-700/60' : ''}`}
                         >
-                          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
                             style={{ background: bg, color }}>
-                            <FileIcon mime={f.mime_type} />
+                            {f.mime_type.startsWith('image/') ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={`${getApiBase()}/files/${f.id}/preview?access_token=${encodeURIComponent(getToken())}`}
+                                alt={f.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextSibling as HTMLElement | null)?.style.removeProperty('display'); }}
+                              />
+                            ) : null}
+                            <span style={f.mime_type.startsWith('image/') ? { display: 'none' } : {}}>
+                              <FileIcon mime={f.mime_type} />
+                            </span>
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-slate-dark dark:text-slate-100 truncate">{f.name}</p>
@@ -1343,12 +1354,14 @@ function FilesPageInner() {
                               className="text-xs font-medium text-center w-full rounded px-1 py-0.5 bg-brand-bg dark:bg-slate-700 border border-brand focus:outline-none"
                             />
                           ) : (
-                            <p className="text-xs font-medium text-slate-dark dark:text-slate-100 text-center truncate w-full">
-                              {f.name}
-                            </p>
-                            <p className="text-[10px] text-slate-mid dark:text-slate-400 text-center">
-                              {(f.item_count ?? 0) === 1 ? '1 item' : `${f.item_count ?? 0} items`}
-                            </p>
+                            <>
+                              <p className="text-xs font-medium text-slate-dark dark:text-slate-100 text-center truncate w-full">
+                                {f.name}
+                              </p>
+                              <p className="text-[10px] text-slate-mid dark:text-slate-400 text-center">
+                                {(f.item_count ?? 0) === 1 ? '1 item' : `${f.item_count ?? 0} items`}
+                              </p>
+                            </>
                           )}
 
                           <div className="absolute top-2 right-2 flex items-center gap-0.5">
@@ -1463,9 +1476,20 @@ function FilesPageInner() {
                         >
                           <div className="absolute left-0 top-0 bottom-0 w-[3px] opacity-0 group-hover:opacity-100 transition-opacity"
                             style={{ background: color }} />
-                          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
                             style={{ background: bg, color }}>
-                            <FileIcon mime={f.mime_type} />
+                            {f.mime_type.startsWith('image/') ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={`${getApiBase()}/files/${f.id}/preview?access_token=${encodeURIComponent(getToken())}`}
+                                alt={f.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextSibling as HTMLElement | null)?.style.removeProperty('display'); }}
+                              />
+                            ) : null}
+                            <span style={f.mime_type.startsWith('image/') ? { display: 'none' } : {}}>
+                              <FileIcon mime={f.mime_type} />
+                            </span>
                           </div>
                           <div className="flex-1 min-w-0">
                             {renameTarget?.type === 'file' && renameTarget?.id === f.id ? (

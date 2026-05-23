@@ -291,12 +291,13 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
             </div>
           </form>
 
-          <div className="text-sm text-slate-mid dark:text-slate-400 hidden sm:block shrink-0">
+          <div className="ml-auto flex items-center gap-4 shrink-0">
+          <div className="text-sm text-slate-mid dark:text-slate-400 hidden sm:block">
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </div>
 
           {/* Header avatar dropdown */}
-          <div className="relative shrink-0">
+          <div className="relative">
             <button
               onClick={() => setHeaderMenuOpen(!headerMenuOpen)}
               className="flex items-center rounded-full hover:ring-2 hover:ring-brand/30 transition"
@@ -335,6 +336,7 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
               </>
             )}
           </div>
+          </div>{/* end ml-auto group */}
         </header>
 
         {/* Page content */}
