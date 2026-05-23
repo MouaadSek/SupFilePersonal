@@ -1177,7 +1177,7 @@ function FilesPageInner() {
                             <p className="text-sm font-medium text-slate-dark dark:text-slate-100 truncate">{f.name}</p>
                             <p className="text-xs text-slate-mid dark:text-slate-400">{formatBytes(f.size)} · {timeAgo(f.updated_at)}</p>
                           </div>
-                          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition shrink-0">
+                          <div className="hidden sm:flex items-center gap-2 opacity-0 group-hover:opacity-100 transition shrink-0">
                             <button onClick={() => openPreview(f)}
                               className="text-xs px-3 py-1.5 rounded-lg border border-slate-light dark:border-slate-600 text-slate-mid dark:text-slate-400 hover:border-brand hover:text-brand transition">
                               Preview
@@ -1430,8 +1430,8 @@ function FilesPageInner() {
                             <p className="text-xs text-slate-mid dark:text-slate-400">{formatBytes(f.size)} · {timeAgo(f.updated_at)}</p>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
-                            {/* Hover-only action buttons (desktop) */}
-                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition">
+                            {/* Hover-only action buttons — hidden on mobile so they don't consume layout space */}
+                            <div className="hidden sm:flex items-center gap-2 opacity-0 group-hover:opacity-100 transition">
                               <button onClick={() => openPreview(f)}
                                 className="text-xs px-3 py-1.5 rounded-lg border border-slate-light text-slate-mid hover:border-brand hover:text-brand transition">
                                 Preview
