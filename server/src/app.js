@@ -1,6 +1,7 @@
 require('dotenv').config();
 const fs   = require('fs');
 const path = require('path');
+const encryptionService = require('./services/encryptionService');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -14,37 +15,26 @@ const dashboardRoutes = require('./routes/dashboard');
 
 const app = express();
 
-app.use(helmet());
-const corsOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:4000')
-  .split(',')
-  .map((o) => o.trim())
-  .filter(Boolean);
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors({
-  origin: (origin, cb) => {
-    if (!origin || corsOrigins.includes(origin) || corsOrigins.includes('*')) {
-      cb(null, true);
-    } else {
-      cb(null, corsOrigins[0]);
-    }
-  },
+  origin: process.env.CLIENT_ORIGIN || 'http://localhost:4000',
   credentials: true,
 }));
 app.use(express.json());
 
 const STORAGE_PATH = process.env.STORAGE_PATH || './storage';
-const avatarsDir = path.join(STORAGE_PATH, 'avatars');
-if (!fs.existsSync(avatarsDir)) fs.mkdirSync(avatarsDir, { recursive: true });
-app.use('/avatars', express.static(avatarsDir));
+app.use('/avatars', express.static(path.resolve(STORAGE_PATH)));
+app.use(require('passport').initialize());
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
-app.use('/auth',      authRoutes);
+app.use('/auth/oauth', require('./routes/oauth'));
+app.use('/auth',       authRoutes);
 app.use('/files',     fileRoutes);
 app.use('/folders',   folderRoutes);
 app.use('/shares',    shareRoutes);
 app.use('/dashboard', dashboardRoutes);
 app.use('/search',    require('./routes/search'));
-app.use('/trash',     require('./routes/trash'));
 app.use('/users',     require('./routes/users'));
 
 app.use((err, _req, res, _next) => {
@@ -62,6 +52,7 @@ const PORT = process.env.PORT || 3000;
 
 migrate()
   .then(() => {
+    encryptionService.logStartupWarning();
     app.listen(PORT, () => console.log(`SUPFile server running on port ${PORT}`));
   })
   .catch((err) => {

@@ -1,6 +1,8 @@
+import { fetchWithAuth } from '@/utils/authenticatedFetch';
+
 /** Charge un PDF distant en mémoire (sans `downloadAsync`) pour éviter le gestionnaire de téléchargements du système. */
 export async function fetchPdfAsInlineDataUri(url: string): Promise<string> {
-  const res = await fetch(url);
+  const res = await fetchWithAuth(url);
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}`);
   }

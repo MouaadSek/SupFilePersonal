@@ -1,5 +1,4 @@
-# bcrypt native bindings segfault on Alpine; use Debian slim
-FROM node:20-slim
+FROM node:20-alpine
 
 WORKDIR /app
 

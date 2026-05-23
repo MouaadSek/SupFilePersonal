@@ -1,8 +1,8 @@
 const crypto = require('crypto');
-const fs = require('fs');
 const bcrypt = require('bcrypt');
+const fs = require('fs');
 const { query } = require('../db');
-const zipService = require('../services/zipService');
+const encryptionService = require('../services/encryptionService');
 
 function generateToken() {
   return crypto.randomBytes(24).toString('base64url');
@@ -30,55 +30,30 @@ async function create(req, res, next) {
   }
 }
 
-async function loadPublicShare(token, password) {
-  const result = await query('SELECT * FROM shares WHERE token = $1', [token]);
-  const share = result.rows[0];
-  if (!share) {
-    const err = new Error('Link not found');
-    err.status = 404;
-    throw err;
-  }
-  if (share.expires_at && new Date(share.expires_at) < new Date()) {
-    const err = new Error('Link has expired');
-    err.status = 410;
-    throw err;
-  }
-  if (share.password_hash) {
-    if (!password) {
-      const err = new Error('Password required');
-      err.status = 403;
-      err.protected = true;
-      throw err;
-    }
-    const match = await bcrypt.compare(password, share.password_hash);
-    if (!match) {
-      const err = new Error('Wrong password');
-      err.status = 403;
-      throw err;
-    }
-  }
-  return share;
-}
-
 // GET /shares/:token  (public)
 async function access(req, res, next) {
   try {
-    const password = req.body?.password || req.query?.password;
-    const share = await loadPublicShare(req.params.token, password);
+    const result = await query('SELECT * FROM shares WHERE token = $1', [req.params.token]);
+    const share = result.rows[0];
+    if (!share) return res.status(404).json({ error: 'Link not found' });
+    if (share.expires_at && new Date(share.expires_at) < new Date()) {
+      return res.status(410).json({ error: 'Link has expired' });
+    }
+
+    if (share.password_hash) {
+      const password = req.body?.password || req.query.password;
+      if (!password) return res.status(403).json({ error: 'Password required', protected: true });
+      const match = await bcrypt.compare(password, share.password_hash);
+      if (!match) return res.status(403).json({ error: 'Wrong password' });
+    }
 
     if (share.file_id) {
       const file = await query('SELECT id, name, mime_type, size FROM files WHERE id = $1', [share.file_id]);
-      return res.json({ type: 'file', resource: file.rows[0], token: share.token });
+      return res.json({ type: 'file', resource: file.rows[0] });
     }
     const folder = await query('SELECT id, name FROM folders WHERE id = $1', [share.folder_id]);
-    return res.json({ type: 'folder', resource: folder.rows[0], token: share.token });
+    return res.json({ type: 'folder', resource: folder.rows[0] });
   } catch (err) {
-    if (err.status) {
-      return res.status(err.status).json({
-        error: err.message,
-        ...(err.protected ? { protected: true } : {}),
-      });
-    }
     next(err);
   }
 }
@@ -133,88 +108,43 @@ async function sharedWithMe(req, res, next) {
   }
 }
 
-// GET /shares/:token/download — public file download or folder ZIP
-async function downloadPublic(req, res, next) {
+// GET /shares/:token/download  (public — streams the file)
+async function downloadShare(req, res, next) {
   try {
-    const password = req.body?.password || req.query?.password;
-    const share = await loadPublicShare(req.params.token, password);
-
-    if (share.file_id) {
-      const file = await query(
-        'SELECT * FROM files WHERE id = $1 AND trashed = FALSE',
-        [share.file_id],
-      );
-      const row = file.rows[0];
-      if (!row) return res.status(404).json({ error: 'File not found' });
-      res.setHeader('Content-Disposition', `attachment; filename="${row.name}"`);
-      res.setHeader('Content-Type', row.mime_type);
-      return fs.createReadStream(row.storage_path).pipe(res);
+    const result = await query('SELECT * FROM shares WHERE token = $1', [req.params.token]);
+    const share = result.rows[0];
+    if (!share) return res.status(404).json({ error: 'Link not found' });
+    if (share.expires_at && new Date(share.expires_at) < new Date()) {
+      return res.status(410).json({ error: 'Link has expired' });
     }
 
-    if (share.folder_id) {
-      return zipService.streamFolderZip(share.folder_id, share.owner_id, res);
+    if (share.password_hash) {
+      const password = req.query.password;
+      if (!password) return res.status(403).json({ error: 'Password required', protected: true });
+      const match = await bcrypt.compare(password, share.password_hash);
+      if (!match) return res.status(403).json({ error: 'Wrong password' });
     }
 
-    return res.status(404).json({ error: 'Resource not found' });
-  } catch (err) {
-    if (err.status) {
-      return res.status(err.status).json({
-        error: err.message,
-        ...(err.protected ? { protected: true } : {}),
-      });
-    }
-    next(err);
-  }
-}
+    if (!share.file_id) return res.status(400).json({ error: 'This share link is for a folder' });
 
-// GET /shares/:token/preview — public preview (files only)
-async function previewPublic(req, res, next) {
-  try {
-    const password = req.body?.password || req.query?.password;
-    const share = await loadPublicShare(req.params.token, password);
-    if (!share.file_id) return res.status(400).json({ error: 'Preview only available for files' });
-    const result = await query(
+    const fileResult = await query(
       'SELECT * FROM files WHERE id = $1 AND trashed = FALSE',
-      [share.file_id],
+      [share.file_id]
     );
-    const file = result.rows[0];
+    const file = fileResult.rows[0];
     if (!file) return res.status(404).json({ error: 'File not found' });
 
-    const stat = fs.statSync(file.storage_path);
-    const total = stat.size;
-    const range = req.headers.range;
+    res.setHeader('Content-Disposition', `attachment; filename="${file.name}"`);
+    res.setHeader('Content-Type', file.mime_type);
 
-    if (range) {
-      const [startStr, endStr] = range.replace(/bytes=/, '').split('-');
-      const start = parseInt(startStr, 10);
-      const end = endStr ? parseInt(endStr, 10) : total - 1;
-      res.writeHead(206, {
-        'Content-Range': `bytes ${start}-${end}/${total}`,
-        'Accept-Ranges': 'bytes',
-        'Content-Length': end - start + 1,
-        'Content-Type': file.mime_type,
-      });
-      return fs.createReadStream(file.storage_path, { start, end }).pipe(res);
+    if (file.encrypted) {
+      encryptionService.createDecryptStream(file.storage_path).pipe(res);
+    } else {
+      fs.createReadStream(file.storage_path).pipe(res);
     }
-    res.writeHead(200, { 'Content-Length': total, 'Content-Type': file.mime_type });
-    return fs.createReadStream(file.storage_path).pipe(res);
   } catch (err) {
-    if (err.status) {
-      return res.status(err.status).json({
-        error: err.message,
-        ...(err.protected ? { protected: true } : {}),
-      });
-    }
     next(err);
   }
 }
 
-module.exports = {
-  create,
-  access,
-  revoke,
-  list,
-  sharedWithMe,
-  downloadPublic,
-  previewPublic,
-};
+module.exports = { create, access, revoke, list, sharedWithMe, downloadShare };

@@ -53,6 +53,7 @@ import {
   shareDocumentFile,
 } from '@/utils/openDocumentInExternalApp';
 import { fetchPdfAsInlineDataUri } from '@/utils/pdfInlineDataUri';
+import { buildPdfJsViewerHtml, loadPdfBase64 } from '@/utils/pdfPreview';
 import { fileAuthenticatedPreviewUrl } from '@/services/api/client';
 import { loadSpreadsheetRows, spreadsheetRowsToHtml } from '@/utils/spreadsheetFromFile';
 import { shareSingleFileToDevice } from '@/utils/folderArchiveDownload';
@@ -76,89 +77,74 @@ function parentDirectoryOfFileUri(fileUri: string): string | undefined {
   return clean.slice(0, idx + 1);
 }
 
-/** Prépare une URI `file://` lisible par la WebView (copie `content://` vers le cache si besoin). */
-async function ensurePdfReadableFileUri(rawUri: string): Promise<string> {
-  if (rawUri.startsWith('file:')) return rawUri;
-  if (!FileSystem.cacheDirectory) return rawUri;
-  const dest = `${FileSystem.cacheDirectory}pdf_preview_${Date.now()}.pdf`;
-  try {
-    await FileSystem.copyAsync({ from: rawUri, to: dest });
-    return dest;
-  } catch {
-    return rawUri;
-  }
-}
-
 function PdfPreview({ uri }: { uri: string }) {
   const { colors } = useTheme();
-  const [source, setSource] = useState<{ uri: string } | null>(null);
+  const [webSource, setWebSource] = useState<
+    { uri: string } | { html: string; baseUrl?: string } | null
+  >(null);
   const [iosReadAccessUrl, setIosReadAccessUrl] = useState<string | undefined>();
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    setLoadError(false);
+    setWebSource(null);
 
     (async () => {
-      if (Platform.OS === 'web') {
-        if (!cancelled) {
-          setSource({ uri });
-          setIosReadAccessUrl(undefined);
+      try {
+        if (Platform.OS === 'web') {
+          if (!cancelled) setWebSource({ uri });
+          return;
         }
-        return;
-      }
 
-      if (uri.startsWith('http://') || uri.startsWith('https://')) {
-        try {
-          const dataUri = await fetchPdfAsInlineDataUri(uri);
+        /* Android WebView has no PDF renderer — paint pages with pdf.js inside HTML. */
+        if (Platform.OS === 'android') {
+          const b64 = await loadPdfBase64(uri);
           if (!cancelled) {
-            setSource({ uri: dataUri });
+            setWebSource({ html: buildPdfJsViewerHtml(b64), baseUrl: 'https://localhost' });
             setIosReadAccessUrl(undefined);
           }
-        } catch {
-          if (!cancelled) {
-            setSource({ uri });
-            setIosReadAccessUrl(undefined);
+          return;
+        }
+
+        if (uri.startsWith('http://') || uri.startsWith('https://')) {
+          try {
+            const dataUri = await fetchPdfAsInlineDataUri(uri);
+            if (!cancelled) {
+              setWebSource({ uri: dataUri });
+              setIosReadAccessUrl(undefined);
+            }
+          } catch {
+            if (!cancelled) {
+              setWebSource({ uri });
+              setIosReadAccessUrl(undefined);
+            }
           }
+          return;
         }
-        return;
-      }
 
-      if (Platform.OS === 'ios') {
-        if (!cancelled) {
-          setSource({ uri });
-          setIosReadAccessUrl(
-            parentDirectoryOfFileUri(uri) ?? FileSystem.cacheDirectory ?? undefined,
-          );
+        if (Platform.OS === 'ios') {
+          if (!cancelled) {
+            setWebSource({ uri });
+            setIosReadAccessUrl(
+              parentDirectoryOfFileUri(uri) ?? FileSystem.cacheDirectory ?? undefined,
+            );
+          }
+          return;
         }
-        return;
-      }
 
-      /* Android : charger le PDF en `file://` (WebView + Chrome) évite les plantages / pages blanches
-       * liés aux très gros `data:application/pdf;base64,…` après import. */
-      if (Platform.OS === 'android') {
-        const fileUri = await ensurePdfReadableFileUri(uri);
-        if (!cancelled) {
-          setSource({ uri: fileUri.startsWith('file:') ? fileUri : uri });
-          setIosReadAccessUrl(undefined);
-        }
-        return;
-      }
-
-      if (uri.startsWith('file:')) {
-        try {
+        if (uri.startsWith('file:')) {
           const b64 = await FileSystem.readAsStringAsync(uri, { encoding: EncodingType.Base64 });
           if (!cancelled) {
-            setSource({ uri: `data:application/pdf;base64,${b64}` });
+            setWebSource({ uri: `data:application/pdf;base64,${b64}` });
             setIosReadAccessUrl(undefined);
           }
-        } catch {
-          if (!cancelled) {
-            setSource({ uri });
-            setIosReadAccessUrl(undefined);
-          }
+        } else if (!cancelled) {
+          setWebSource({ uri });
+          setIosReadAccessUrl(undefined);
         }
-      } else if (!cancelled) {
-        setSource({ uri });
-        setIosReadAccessUrl(undefined);
+      } catch {
+        if (!cancelled) setLoadError(true);
       }
     })();
 
@@ -167,7 +153,17 @@ function PdfPreview({ uri }: { uri: string }) {
     };
   }, [uri]);
 
-  if (!source) {
+  if (loadError) {
+    return (
+      <View style={[styles.embedWebView, { backgroundColor: colors.background }]}>
+        <Text style={[styles.fallbackText, { color: colors.textSecondary }]}>
+          Impossible d’afficher ce PDF. Vérifiez votre connexion ou ouvrez-le avec une autre application.
+        </Text>
+      </View>
+    );
+  }
+
+  if (!webSource) {
     return (
       <View style={[styles.embedWebView, { backgroundColor: colors.background }]}>
         <ActivityIndicator style={styles.centeredLoader} color={colors.primary} size="large" />
@@ -178,16 +174,19 @@ function PdfPreview({ uri }: { uri: string }) {
   return (
     <View style={[styles.pdfDocumentFrame, { backgroundColor: colors.surface }]}>
       <WebView
-        source={source}
+        source={webSource}
         style={[styles.pdfWebViewInner, { backgroundColor: '#525659' }]}
         originWhitelist={['*']}
+        javaScriptEnabled
+        domStorageEnabled
+        mixedContentMode="always"
         startInLoadingState
         allowingReadAccessToURL={iosReadAccessUrl}
-        allowFileAccess={Platform.OS === 'android'}
-        setBuiltInZoomControls={true}
+        allowFileAccess
+        setBuiltInZoomControls
         setDisplayZoomControls={false}
-        showsVerticalScrollIndicator={false}
-        showsHorizontalScrollIndicator={false}
+        showsVerticalScrollIndicator
+        nestedScrollEnabled
         renderLoading={() => (
           <ActivityIndicator style={styles.centeredLoader} color={colors.primary} size="large" />
         )}
@@ -640,7 +639,13 @@ function previewKind(file: FileItem): string {
 }
 
 function streamUri(file: FileItem): string | null {
-  return file.localUri || file.downloadUrl || null;
+  return (
+    file.localUri ||
+    (file.id ? fileAuthenticatedPreviewUrl(file.id) : undefined) ||
+    file.previewUrl ||
+    file.downloadUrl ||
+    null
+  );
 }
 
 function PreviewMetaPanel({

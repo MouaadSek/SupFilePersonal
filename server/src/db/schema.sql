@@ -20,7 +20,6 @@ CREATE TABLE IF NOT EXISTS users (
   quota_total     BIGINT NOT NULL DEFAULT 32212254720,  -- 30 GB
   oauth_provider  TEXT,                        -- 'google' | 'github' | NULL
   oauth_id        TEXT,                        -- provider's user id
-  theme           TEXT NOT NULL DEFAULT 'system',  -- 'light' | 'dark' | 'system'
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (oauth_provider, oauth_id)
@@ -54,6 +53,9 @@ CREATE TABLE IF NOT EXISTS files (
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Encryption flag — added after initial release; idempotent on re-run
+ALTER TABLE files ADD COLUMN IF NOT EXISTS encrypted BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- ──────────────────────────────────────────────────────────────
 -- 4. SHARES (public links)
@@ -121,18 +123,3 @@ CREATE OR REPLACE TRIGGER trg_folders_updated_at
 CREATE OR REPLACE TRIGGER trg_files_updated_at
   BEFORE UPDATE ON files
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
--- Migrations for existing databases
-ALTER TABLE users ADD COLUMN IF NOT EXISTS theme TEXT NOT NULL DEFAULT 'system';
-
--- Password reset (forgot-password flow)
-CREATE TABLE IF NOT EXISTS password_reset_tokens (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  token_hash  TEXT NOT NULL,
-  expires_at  TIMESTAMPTZ NOT NULL,
-  used_at     TIMESTAMPTZ,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_password_reset_user ON password_reset_tokens(user_id);

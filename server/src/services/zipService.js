@@ -1,13 +1,14 @@
 const archiver = require('archiver');
 const path = require('path');
 const { query } = require('../db');
+const encryptionService = require('./encryptionService');
 
 /**
  * Recursively collects all non-trashed files under a folder.
  */
 async function collectFiles(folderId, prefix = '') {
   const files = await query(
-    'SELECT name, storage_path FROM files WHERE folder_id = $1 AND trashed = FALSE',
+    'SELECT name, storage_path, encrypted FROM files WHERE folder_id = $1 AND trashed = FALSE',
     [folderId]
   );
   const subFolders = await query(
@@ -25,6 +26,7 @@ async function collectFiles(folderId, prefix = '') {
 
 /**
  * Streams a folder (and all its contents) as a ZIP to the response.
+ * Encrypted files are decrypted on-the-fly before being added to the archive.
  */
 async function streamFolderZip(folderId, userId, res) {
   const folder = await query(
@@ -46,7 +48,11 @@ async function streamFolderZip(folderId, userId, res) {
   archive.pipe(res);
 
   for (const entry of entries) {
-    archive.file(entry.storage_path, { name: entry.zipPath });
+    if (entry.encrypted) {
+      archive.append(encryptionService.createDecryptStream(entry.storage_path), { name: entry.zipPath });
+    } else {
+      archive.file(entry.storage_path, { name: entry.zipPath });
+    }
   }
 
   await archive.finalize();

@@ -1,25 +1,11 @@
 const { query } = require('../db');
 const zipService = require('../services/zipService');
-const { canReadFolder, canWriteFolder } = require('../services/folderAccess');
-
-const FOLDER_SELECT_WITH_COUNT = `
-  f.*,
-  (
-    SELECT COUNT(*)::int FROM folders c
-    WHERE c.parent_id = f.id AND c.trashed = FALSE
-  ) + (
-    SELECT COUNT(*)::int FROM files fl
-    WHERE fl.folder_id = f.id AND fl.trashed = FALSE
-  ) AS item_count`;
 
 // GET /folders  — root level
 async function listRoot(req, res, next) {
   try {
     const folders = await query(
-      `SELECT ${FOLDER_SELECT_WITH_COUNT}
-       FROM folders f
-       WHERE f.owner_id = $1 AND f.parent_id IS NULL AND f.trashed = FALSE
-       ORDER BY f.name`,
+      'SELECT * FROM folders WHERE owner_id = $1 AND parent_id IS NULL AND trashed = FALSE ORDER BY name',
       [req.user.id]
     );
     const files = await query(
@@ -35,25 +21,22 @@ async function listRoot(req, res, next) {
 // GET /folders/:id
 async function listFolder(req, res, next) {
   try {
-    if (!(await canReadFolder(req.params.id, req.user.id))) {
-      return res.status(404).json({ error: 'Folder not found' });
-    }
-
     const folder = await query(
-      'SELECT * FROM folders WHERE id = $1 AND trashed = FALSE',
-      [req.params.id],
+      `SELECT * FROM folders WHERE id = $1 AND trashed = FALSE
+       AND (owner_id = $2 OR EXISTS (
+         SELECT 1 FROM folder_members WHERE folder_id = $1 AND user_id = $2
+       ))`,
+      [req.params.id, req.user.id]
     );
+    if (!folder.rows[0]) return res.status(404).json({ error: 'Folder not found' });
 
     const subFolders = await query(
-      `SELECT ${FOLDER_SELECT_WITH_COUNT}
-       FROM folders f
-       WHERE f.parent_id = $1 AND f.trashed = FALSE
-       ORDER BY f.name`,
-      [req.params.id],
+      'SELECT * FROM folders WHERE parent_id = $1 AND trashed = FALSE ORDER BY name',
+      [req.params.id]
     );
     const files = await query(
       'SELECT * FROM files WHERE folder_id = $1 AND trashed = FALSE ORDER BY name',
-      [req.params.id],
+      [req.params.id]
     );
     return res.json({ folder: folder.rows[0], folders: subFolders.rows, files: files.rows });
   } catch (err) {
@@ -65,7 +48,6 @@ async function listFolder(req, res, next) {
 async function create(req, res, next) {
   try {
     const { name, parent_id } = req.body;
-    if (!name) return res.status(400).json({ error: 'name is required' });
 
     const result = await query(
       'INSERT INTO folders (name, parent_id, owner_id) VALUES ($1, $2, $3) RETURNING *',
@@ -129,72 +111,30 @@ async function zip(req, res, next) {
   }
 }
 
-// POST /folders/:id/restore
-async function restore(req, res, next) {
-  try {
-    const folder = await query(
-      'SELECT id FROM folders WHERE id = $1 AND owner_id = $2 AND trashed = TRUE',
-      [req.params.id, req.user.id],
-    );
-    if (!folder.rows[0]) return res.status(404).json({ error: 'Folder not found in trash' });
-
-    await query(
-      `WITH RECURSIVE subtree AS (
-         SELECT id FROM folders WHERE id = $1
-         UNION ALL
-         SELECT f.id FROM folders f JOIN subtree s ON f.parent_id = s.id
-       )
-       UPDATE folders SET trashed = FALSE WHERE id IN (SELECT id FROM subtree)`,
-      [req.params.id],
-    );
-    await query(
-      `WITH RECURSIVE subtree AS (
-         SELECT id FROM folders WHERE id = $1
-         UNION ALL
-         SELECT f.id FROM folders f JOIN subtree s ON f.parent_id = s.id
-       )
-       UPDATE files SET trashed = FALSE WHERE folder_id IN (SELECT id FROM subtree)`,
-      [req.params.id],
-    );
-    const result = await query('SELECT * FROM folders WHERE id = $1', [req.params.id]);
-    return res.json(result.rows[0]);
-  } catch (err) {
-    next(err);
-  }
-}
-
 // POST /folders/:id/members
 async function addMember(req, res, next) {
   try {
-    const { user_id, email, permission = 'read' } = req.body;
-    let targetUserId = user_id;
+    const { user_id, permission = 'read' } = req.body;
+    if (!user_id) return res.status(400).json({ error: 'user_id is required' });
 
-    if (!targetUserId && email) {
-      const lookup = await query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
-      if (!lookup.rows[0]) {
-        return res.status(404).json({ error: 'No user found with this email' });
-      }
-      targetUserId = lookup.rows[0].id;
-    }
-
-    if (!targetUserId) return res.status(400).json({ error: 'user_id or email is required' });
-
-    const owned = await query(
-      'SELECT id FROM folders WHERE id = $1 AND owner_id = $2 AND trashed = FALSE',
-      [req.params.id, req.user.id],
+    const folderResult = await query(
+      'SELECT owner_id FROM folders WHERE id = $1 AND trashed = FALSE',
+      [req.params.id]
     );
-    if (!owned.rows[0]) return res.status(404).json({ error: 'Folder not found' });
-
-    if (targetUserId === req.user.id) {
+    if (!folderResult.rows[0]) return res.status(404).json({ error: 'Folder not found' });
+    if (folderResult.rows[0].owner_id !== req.user.id) {
+      return res.status(403).json({ error: 'Only the folder owner can manage sharing' });
+    }
+    if (user_id === req.user.id) {
       return res.status(400).json({ error: 'Cannot share a folder with yourself' });
     }
 
     await query(
       `INSERT INTO folder_members (folder_id, user_id, permission) VALUES ($1, $2, $3)
        ON CONFLICT (folder_id, user_id) DO UPDATE SET permission = EXCLUDED.permission`,
-      [req.params.id, targetUserId, permission],
+      [req.params.id, user_id, permission]
     );
-    return res.status(201).json({ message: 'Member added', user_id: targetUserId });
+    return res.status(201).json({ message: 'Member added' });
   } catch (err) {
     next(err);
   }
@@ -203,6 +143,16 @@ async function addMember(req, res, next) {
 // DELETE /folders/:id/members/:userId
 async function removeMember(req, res, next) {
   try {
+    const folderResult = await query(
+      'SELECT owner_id FROM folders WHERE id = $1',
+      [req.params.id]
+    );
+    if (!folderResult.rows[0]) return res.status(404).json({ error: 'Folder not found' });
+    // A user may always remove themselves; only the owner can remove others
+    if (req.params.userId !== req.user.id && folderResult.rows[0].owner_id !== req.user.id) {
+      return res.status(403).json({ error: 'Only the folder owner can manage sharing' });
+    }
+
     await query(
       'DELETE FROM folder_members WHERE folder_id = $1 AND user_id = $2',
       [req.params.id, req.params.userId]
@@ -213,14 +163,19 @@ async function removeMember(req, res, next) {
   }
 }
 
-module.exports = {
-  listRoot,
-  listFolder,
-  create,
-  update,
-  trash,
-  restore,
-  zip,
-  addMember,
-  removeMember,
-};
+// POST /folders/:id/restore
+async function restore(req, res, next) {
+  try {
+    const result = await query(
+      'UPDATE folders SET trashed = FALSE WHERE id = $1 AND owner_id = $2 RETURNING *',
+      [req.params.id, req.user.id]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'Folder not found in trash' });
+    await query('UPDATE files SET trashed = FALSE WHERE folder_id = $1', [req.params.id]);
+    return res.json(result.rows[0]);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { listRoot, listFolder, create, update, trash, zip, addMember, removeMember, restore };

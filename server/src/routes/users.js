@@ -1,37 +1,24 @@
 const router = require('express').Router();
+const path = require('path');
+const fs = require('fs');
 const auth = require('../middleware/authMiddleware');
+const upload = require('../middleware/uploadMiddleware');
 const { query } = require('../db');
 const bcrypt = require('bcrypt');
 
-// GET /users/lookup?email= — resolve user id for folder invites
-router.get('/lookup', auth, async (req, res, next) => {
-  try {
-    const email = typeof req.query.email === 'string' ? req.query.email.trim().toLowerCase() : '';
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ error: 'Valid email query parameter is required' });
-    }
-    const result = await query('SELECT id, email, display_name FROM users WHERE email = $1', [email]);
-    if (!result.rows[0]) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    return res.json(result.rows[0]);
-  } catch (err) {
-    next(err);
-  }
-});
+const STORAGE_PATH = process.env.STORAGE_PATH || './storage';
 
 // PUT /users/me
 router.put('/me', auth, async (req, res, next) => {
   try {
-    const { email, display_name, theme } = req.body;
+    const { email, display_name } = req.body;
     const result = await query(
       `UPDATE users SET
          email        = COALESCE($1, email),
-         display_name = COALESCE($2, display_name),
-         theme        = COALESCE($3, theme)
-       WHERE id = $4
-       RETURNING id, email, display_name, avatar_url, quota_used, quota_total, theme`,
-      [email || null, display_name || null, theme || null, req.user.id]
+         display_name = COALESCE($2, display_name)
+       WHERE id = $3
+       RETURNING id, email, display_name, avatar_url, quota_used, quota_total`,
+      [email || null, display_name || null, req.user.id]
     );
     return res.json(result.rows[0]);
   } catch (err) { next(err); }
@@ -49,9 +36,6 @@ router.put('/me/password', auth, async (req, res, next) => {
     }
 
     const user = await query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
-    if (!user.rows[0]?.password_hash) {
-      return res.status(400).json({ error: 'Password sign-in is not enabled for this account' });
-    }
     const match = await bcrypt.compare(current_password, user.rows[0].password_hash);
     if (!match) return res.status(401).json({ error: 'Current password is incorrect' });
 
@@ -61,24 +45,8 @@ router.put('/me/password', auth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-const path = require('path');
-const fs = require('fs');
-const STORAGE_PATH = process.env.STORAGE_PATH || './storage';
-const avatarStorage = require('multer').diskStorage({
-  destination: (_req, _file, cb) => {
-    const dir = path.join(STORAGE_PATH, 'avatars');
-    fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname) || '.jpg';
-    cb(null, `${req.user.id}${ext}`);
-  },
-});
-const avatarUpload = require('multer')({ storage: avatarStorage, limits: { fileSize: 5 * 1024 * 1024 } });
-
 // POST /users/me/avatar
-router.post('/me/avatar', auth, avatarUpload.single('avatar'), async (req, res, next) => {
+router.post('/me/avatar', auth, upload.single('avatar'), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file provided' });
     const avatarUrl = `/avatars/${req.file.filename}`;
@@ -86,6 +54,38 @@ router.post('/me/avatar', auth, avatarUpload.single('avatar'), async (req, res, 
       'UPDATE users SET avatar_url = $1 WHERE id = $2 RETURNING id, email, display_name, avatar_url',
       [avatarUrl, req.user.id]
     );
+    return res.json(result.rows[0]);
+  } catch (err) { next(err); }
+});
+
+// DELETE /users/me/avatar
+router.delete('/me/avatar', auth, async (req, res, next) => {
+  try {
+    const row = await query('SELECT avatar_url FROM users WHERE id = $1', [req.user.id]);
+    const avatarUrl = row.rows[0]?.avatar_url;
+
+    await query('UPDATE users SET avatar_url = NULL WHERE id = $1', [req.user.id]);
+
+    if (avatarUrl) {
+      const filename = path.basename(avatarUrl);
+      const filePath = path.resolve(STORAGE_PATH, filename);
+      fs.unlink(filePath, () => {});
+    }
+
+    return res.json({ message: 'Avatar removed' });
+  } catch (err) { next(err); }
+});
+
+// GET /users/lookup?email=... — find a user by email (for folder sharing)
+router.get('/lookup', auth, async (req, res, next) => {
+  try {
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ error: 'email query param is required' });
+    const result = await query(
+      'SELECT id, email, display_name FROM users WHERE LOWER(email) = LOWER($1)',
+      [email.trim()]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'User not found' });
     return res.json(result.rows[0]);
   } catch (err) { next(err); }
 });
