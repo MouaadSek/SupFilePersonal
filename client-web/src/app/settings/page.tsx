@@ -82,6 +82,9 @@ export default function SettingsPage() {
   // theme
   const [isDark, setIsDark] = useState(false);
 
+  // avatar image error fallback
+  const [avatarImgError, setAvatarImgError] = useState(false);
+
   // toast
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -91,6 +94,8 @@ export default function SettingsPage() {
       setEmail(user.email ?? '');
     }
   }, [user]);
+
+  useEffect(() => { setAvatarImgError(false); }, [localAvatarUrl, user?.avatar_url]);
 
   useEffect(() => {
     setIsDark(getTheme() === 'dark');
@@ -214,9 +219,9 @@ export default function SettingsPage() {
                   title="Click to change avatar"
                   className="relative w-16 h-16 rounded-2xl shrink-0 cursor-pointer group focus:outline-none focus:ring-2 focus:ring-brand"
                 >
-                  {avatarSrc ? (
+                  {avatarSrc && !avatarImgError ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={avatarSrc} alt="Avatar" className="w-full h-full rounded-2xl object-cover" />
+                    <img src={avatarSrc} alt="Avatar" className="w-full h-full rounded-2xl object-cover" onError={() => setAvatarImgError(true)} />
                   ) : (
                     <div className="w-full h-full rounded-2xl bg-brand/15 flex items-center justify-center text-brand font-bold text-2xl">
                       {user?.display_name?.[0]?.toUpperCase() ?? '?'}
