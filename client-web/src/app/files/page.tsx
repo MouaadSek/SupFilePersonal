@@ -88,9 +88,14 @@ function Skeleton({ className = '' }: { className?: string }) {
 
 function Toast({ message, type = 'success' }: { message: string; type?: 'success' | 'error' }) {
   return (
-    <div className={`fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl text-white text-sm
-                    font-medium shadow-lg flex items-center gap-2 ${type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
-      {type === 'error' ? '✗' : '✓'} {message}
+    <div className={`fixed bottom-6 right-6 z-50 rounded-xl text-white text-sm font-medium
+                    shadow-lg overflow-hidden toast-in ${type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
+      <div className="flex items-center gap-2 px-5 py-3">
+        {type === 'error' ? '✗' : '✓'} {message}
+      </div>
+      <div className="h-[3px] bg-black/10">
+        <div className="h-full bg-white/50 toast-bar" />
+      </div>
     </div>
   );
 }
@@ -1224,19 +1229,30 @@ function FilesPageInner() {
               {Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
             </div>
           ) : folders.length === 0 && files.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 text-center">
-              <div className="w-20 h-20 rounded-3xl bg-brand-bg flex items-center justify-center mb-4 text-brand">
-                <IconFolder />
-              </div>
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <svg width={96} height={96} viewBox="0 0 96 96" fill="none" className="mb-5 opacity-80">
+                <rect x="8" y="28" width="80" height="56" rx="8" fill="#edf3f9" stroke="#2da2fd" strokeWidth="2"/>
+                <path d="M8 44h80" stroke="#2da2fd" strokeWidth="1.5" strokeDasharray="4 3"/>
+                <rect x="8" y="20" width="36" height="12" rx="4" fill="#d1e8fd" stroke="#2da2fd" strokeWidth="2"/>
+                <circle cx="68" cy="56" r="14" fill="#2da2fd" fillOpacity="0.12" stroke="#2da2fd" strokeWidth="1.5"/>
+                <path d="M68 50v12M62 56l6-6 6 6" stroke="#2da2fd" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
               <p className="text-slate-dark dark:text-slate-100 font-semibold text-lg">This folder is empty</p>
               <p className="text-slate-mid dark:text-slate-400 text-sm mt-1 mb-6">
                 Upload a file or create a new folder to get started.
               </p>
-              <label className="flex items-center gap-2 px-5 py-2.5 bg-brand text-white rounded-xl
-                                text-sm font-medium cursor-pointer hover:bg-brand-light transition">
-                <IconUpload /> Upload a file
-                <input type="file" className="hidden" onChange={handleUpload} />
-              </label>
+              <div className="flex gap-3">
+                <label className="flex items-center gap-2 px-5 py-2.5 bg-brand text-white rounded-xl
+                                  text-sm font-medium cursor-pointer hover:bg-brand-light transition">
+                  <IconUpload /> Upload a file
+                  <input type="file" className="hidden" onChange={handleUpload} />
+                </label>
+                <button onClick={() => setShowNewFolder(true)}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-light dark:border-slate-600
+                             text-sm font-medium text-slate-dark dark:text-slate-100 hover:border-brand hover:text-brand transition">
+                  <IconFolder /> New Folder
+                </button>
+              </div>
             </div>
           ) : (
             <div className="space-y-6">
@@ -1260,7 +1276,7 @@ function FilesPageInner() {
                                      items-center gap-2 cursor-pointer select-none transition-all
                                      ${isOver
                                        ? 'border-brand bg-brand/5 shadow-md scale-[1.02]'
-                                       : 'border-slate-light dark:border-slate-700 hover:border-brand hover:shadow-sm'
+                                       : 'border-slate-light dark:border-slate-700 hover:border-brand hover:shadow-md hover:scale-[1.01]'
                                      }`}
                         >
                           {isOver && (
@@ -1401,11 +1417,13 @@ function FilesPageInner() {
                           onDragStart={(e) => handleDragStart(e, f)}
                           onDragEnd={handleDragEnd}
                           className={`relative flex items-center gap-3 sm:gap-4 px-3 sm:px-5 py-3.5 hover:bg-brand-bg/50 dark:hover:bg-slate-700/50 transition group
-                                      cursor-grab active:cursor-grabbing
+                                      cursor-grab active:cursor-grabbing overflow-hidden
                                       ${i === 0 ? 'rounded-t-2xl' : ''}
                                       ${i === files.length - 1 ? 'rounded-b-2xl' : 'border-b border-slate-light/60 dark:border-slate-700/60'}
                                       ${isDragging ? 'opacity-40 bg-brand-bg/30 dark:bg-slate-700/30' : ''}`}
                         >
+                          <div className="absolute left-0 top-0 bottom-0 w-[3px] opacity-0 group-hover:opacity-100 transition-opacity"
+                            style={{ background: color }} />
                           <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
                             style={{ background: bg, color }}>
                             <FileIcon mime={f.mime_type} />
@@ -1499,6 +1517,15 @@ function FilesPageInner() {
                   )}
                 </section>
               )}
+            </div>
+          )}
+
+          {/* Persistent drop zone hint — only when not dragging and folder has content */}
+          {!isDragOver && !uploading && (folders.length > 0 || files.length > 0) && (
+            <div className="mt-4 rounded-2xl border-2 border-dashed border-slate-light dark:border-slate-700
+                            flex items-center justify-center gap-2 py-4 text-slate-mid dark:text-slate-500 text-sm">
+              <IconUpload />
+              Drop files here or use the Upload button
             </div>
           )}
         </div>

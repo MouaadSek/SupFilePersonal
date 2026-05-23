@@ -35,6 +35,7 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
   const router = useRouter();
   const [searchVal, setSearchVal] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const quotaUsed  = Number(user?.quota_used  ?? 0);
   const quotaTotal = Number(user?.quota_total ?? 32212254720);
   const pct = Math.min(100, Math.round((quotaUsed / quotaTotal) * 100));
@@ -67,10 +68,10 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
               <Link
                 key={href}
                 href={href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors border-l-[3px] ${
                   active
-                    ? 'bg-brand/10 text-brand dark:bg-brand/20 dark:text-brand ring-1 ring-brand/20 dark:ring-brand/30'
-                    : 'text-slate-mid dark:text-slate-400 hover:bg-brand-bg dark:hover:bg-slate-700 hover:text-slate-dark dark:hover:text-slate-100'
+                    ? 'bg-brand/10 text-brand dark:bg-brand/20 dark:text-brand border-l-brand'
+                    : 'text-slate-mid dark:text-slate-400 hover:bg-brand-bg dark:hover:bg-slate-700 hover:text-slate-dark dark:hover:text-slate-100 border-l-transparent'
                 }`}
               >
                 <span className={active ? 'text-brand' : 'text-slate-mid dark:text-slate-500'}>
@@ -170,8 +171,54 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
             </div>
           </form>
 
-          <div className="text-sm text-slate-mid dark:text-slate-400 hidden sm:block">
+          <div className="text-sm text-slate-mid dark:text-slate-400 hidden sm:block shrink-0">
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          </div>
+
+          {/* Header avatar dropdown */}
+          <div className="relative shrink-0">
+            <button
+              onClick={() => setHeaderMenuOpen(!headerMenuOpen)}
+              className="flex items-center rounded-full hover:ring-2 hover:ring-brand/30 transition"
+              aria-label="User menu"
+            >
+              {user?.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}${user.avatar_url}`}
+                  alt={user.display_name}
+                  className="w-8 h-8 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-brand/20 flex items-center justify-center text-brand font-semibold text-sm">
+                  {user?.display_name?.[0]?.toUpperCase() ?? '?'}
+                </div>
+              )}
+            </button>
+            {headerMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setHeaderMenuOpen(false)} />
+                <div className="absolute right-0 top-full mt-2 z-50 bg-white dark:bg-slate-800 rounded-xl shadow-xl
+                                border border-slate-light dark:border-slate-700 min-w-44 py-1.5">
+                  <div className="px-3 py-2.5 border-b border-slate-light dark:border-slate-700">
+                    <p className="text-sm font-medium text-slate-dark dark:text-slate-100 truncate">{user?.display_name}</p>
+                    <p className="text-xs text-slate-mid dark:text-slate-400 truncate">{user?.email}</p>
+                  </div>
+                  <Link href="/settings" onClick={() => setHeaderMenuOpen(false)}
+                    className="flex items-center gap-2 px-3 py-2 text-sm text-slate-dark dark:text-slate-100
+                               hover:bg-brand-bg dark:hover:bg-slate-700 transition">
+                    <IconSettings />
+                    Settings
+                  </Link>
+                  <button onClick={() => { setHeaderMenuOpen(false); onLogout(); }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-500
+                               hover:bg-red-50 dark:hover:bg-red-900/20 transition text-left cursor-pointer">
+                    <IconLogout />
+                    Sign out
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </header>
 
@@ -210,10 +257,10 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
                   key={href}
                   href={href}
                   onClick={() => setDrawerOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors border-l-[3px] ${
                     active
-                      ? 'bg-brand/10 text-brand dark:bg-brand/20 dark:text-brand'
-                      : 'text-slate-mid dark:text-slate-400 hover:bg-brand-bg dark:hover:bg-slate-700 hover:text-slate-dark dark:hover:text-slate-100'
+                      ? 'bg-brand/10 text-brand dark:bg-brand/20 dark:text-brand border-l-brand'
+                      : 'text-slate-mid dark:text-slate-400 hover:bg-brand-bg dark:hover:bg-slate-700 hover:text-slate-dark dark:hover:text-slate-100 border-l-transparent'
                   }`}
                 >
                   <span className={active ? 'text-brand' : 'text-slate-mid dark:text-slate-500'}>

@@ -81,6 +81,16 @@ body {
   to   { background-position: 200% 0; }
 }
 
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes toastBar {
+  from { width: 100%; }
+  to   { width: 0%; }
+}
+
 /* ── Global transitions ─────────────────────────────────────── */
 
 @layer base {
@@ -99,6 +109,9 @@ body {
 
 .blob-drift  { animation: blobDrift  12s ease-in-out infinite; }
 .blob-drift2 { animation: blobDrift2 15s ease-in-out infinite; }
+
+.toast-in  { animation: toastIn  0.2s ease-out both; }
+.toast-bar { animation: toastBar 3s   linear   both; }
 
 /* ── Component layer ────────────────────────────────────────── */
 

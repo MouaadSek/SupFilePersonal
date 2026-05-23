@@ -5,6 +5,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { useDashboard, type RecentFile } from '@/hooks/useDashboard';
 import api from '@/lib/api';
+import { useRouter } from 'next/navigation';
 import {
   IconFile, IconImage, IconVideo, IconMusic, IconUpload, IconChevronRight,
 } from '@/components/icons';
@@ -157,12 +158,16 @@ function Skeleton({ className = '' }: { className?: string }) {
 // ─── File row ─────────────────────────────────────────────────────────────────
 
 function FileRow({ file }: { file: RecentFile }) {
+  const router = useRouter();
   const cat  = mimeCategory(file.mime_type);
   const meta = CATEGORY_META[cat];
   const { Icon } = meta;
   return (
-    <div className="flex items-center gap-4 py-3 px-4 hover:bg-brand-bg/60 dark:hover:bg-slate-700/50
-                    rounded-xl transition-colors group cursor-pointer">
+    <div
+      onClick={() => router.push('/files')}
+      className="flex items-center gap-4 py-3 px-4 hover:bg-brand-bg/60 dark:hover:bg-slate-700/50
+                  rounded-xl transition-colors group cursor-pointer"
+    >
       <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
         style={{ background: meta.bg, color: meta.color }}>
         <Icon />
@@ -171,7 +176,7 @@ function FileRow({ file }: { file: RecentFile }) {
         <p className="text-sm font-medium text-slate-dark dark:text-slate-100 truncate">{file.name}</p>
         <p className="text-xs text-slate-mid dark:text-slate-400">{formatBytes(file.size)} · {timeAgo(file.updated_at)}</p>
       </div>
-      <span className="text-slate-light dark:text-slate-600 group-hover:text-slate-mid dark:group-hover:text-slate-400 transition-colors">
+      <span className="text-slate-light dark:text-slate-600 group-hover:text-brand dark:group-hover:text-brand transition-colors">
         <IconChevronRight />
       </span>
     </div>
@@ -226,7 +231,7 @@ export default function DashboardPage() {
 
       {/* ── Stat cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-light dark:border-slate-700 p-5 flex items-center gap-4">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-light dark:border-slate-700 border-l-[3px] border-l-brand p-5 flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-brand/10 flex items-center justify-center text-brand shrink-0">
             <IconUpload />
           </div>
@@ -239,7 +244,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-light dark:border-slate-700 p-5 flex items-center gap-4">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-light dark:border-slate-700 border-l-[3px] border-l-brand-light p-5 flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-brand/10 flex items-center justify-center text-brand shrink-0">
             <IconFile />
           </div>
@@ -252,7 +257,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-light dark:border-slate-700 p-5 flex items-center gap-4">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-light dark:border-slate-700 border-l-[3px] border-l-brand-pale p-5 flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-brand-pale/40 flex items-center justify-center shrink-0">
             <span className="text-brand font-bold text-sm">
               {dataLoading ? '—' : `${Math.round((quotaUsed / quotaTotal) * 100)}%`}
