@@ -573,12 +573,12 @@ function FilesPageInner() {
   const [renameTarget, setRenameTarget] = useState<{ type: 'file' | 'folder'; id: string } | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
-  // search
-  const [isSearchMode, setIsSearchMode] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchType, setSearchType] = useState('');
-  const [searchDate, setSearchDate] = useState('');
-  const [searchFiles, setSearchFiles] = useState<FileItem[]>([]);
+  // search — derived directly from URL so they're always in sync with searchParams
+  const searchQuery  = searchParams.get('q')    ?? '';
+  const searchType   = searchParams.get('type') ?? '';
+  const searchDate   = searchParams.get('date') ?? '';
+  const isSearchMode = !!(searchQuery || searchType || searchDate);
+  const [searchFiles,   setSearchFiles]   = useState<FileItem[]>([]);
   const [searchFolders, setSearchFolders] = useState<Folder[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
 
@@ -610,36 +610,26 @@ function FilesPageInner() {
     };
   }, []);
 
-  // ── URL params — search mode or shared folder navigation ────────────────
+  // ── Folder navigation from ?folder= URL param ────────────────────────────
 
   useEffect(() => {
-    const q      = searchParams.get('q')      || '';
-    const type   = searchParams.get('type')   || '';
-    const date   = searchParams.get('date')   || '';
     const folder = searchParams.get('folder');
-
-    if (q || type || date) {
-      setIsSearchMode(true);
-      setSearchQuery(q);
-      setSearchType(type);
-      setSearchDate(date);
-    } else if (folder) {
+    if (folder) {
       setCrumbs([{ id: null, name: 'My Files' }, { id: folder, name: '…' }]);
       setFolderId(folder);
-    } else {
-      setIsSearchMode(false);
-      setSearchQuery('');
-      setSearchType('');
-      setSearchDate('');
-      setSearchFiles([]);
-      setSearchFolders([]);
     }
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Search data loading ──────────────────────────────────────────────────
+  // searchQuery / searchType / searchDate / isSearchMode are derived from
+  // searchParams directly above, so they update synchronously with URL changes.
 
   useEffect(() => {
-    if (!isSearchMode) return;
+    if (!isSearchMode) {
+      setSearchFiles([]);
+      setSearchFolders([]);
+      return;
+    }
     let cancelled = false;
     setSearchLoading(true);
 
