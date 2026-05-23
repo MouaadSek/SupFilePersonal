@@ -5,6 +5,8 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { useDashboard, type RecentFile } from '@/hooks/useDashboard';
 import api from '@/lib/api';
+import { getToken } from '@/lib/auth';
+import { getApiBase } from '@/lib/apiBase';
 import { useRouter } from 'next/navigation';
 import {
   IconFile, IconImage, IconVideo, IconMusic, IconUpload, IconChevronRight,
@@ -162,15 +164,30 @@ function FileRow({ file }: { file: RecentFile }) {
   const cat  = mimeCategory(file.mime_type);
   const meta = CATEGORY_META[cat];
   const { Icon } = meta;
+  const isImage = file.mime_type.startsWith('image/');
   return (
     <div
       onClick={() => router.push('/files')}
       className="flex items-center gap-4 py-3 px-4 hover:bg-brand-bg/60 dark:hover:bg-slate-700/50
                   rounded-xl transition-colors group cursor-pointer"
     >
-      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
         style={{ background: meta.bg, color: meta.color }}>
-        <Icon />
+        {isImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={`${getApiBase()}/files/${file.id}/preview?access_token=${encodeURIComponent(getToken() ?? '')}`}
+            alt={file.name}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).style.display = 'none';
+              (e.currentTarget.nextSibling as HTMLElement | null)?.style.removeProperty('display');
+            }}
+          />
+        ) : null}
+        <span style={isImage ? { display: 'none' } : {}}>
+          <Icon />
+        </span>
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-slate-dark dark:text-slate-100 truncate">{file.name}</p>
