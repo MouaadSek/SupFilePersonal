@@ -32,7 +32,7 @@ import { useFiles } from '@/contexts/FilesContext';
 import { Logo, UploadProgress, BottomSheet } from '@/components/ui';
 import { CreateFolderModal } from '@/components/files';
 import { StorageBreakdownChart } from '@/components/dashboard';
-import { formatFileSize, formatDate, getFileColor } from '@/data/mockData';
+import { formatFileSize, formatDate, getFileColor } from '@/utils/format';
 import { apiDashboardHome } from '@/services/api/dashboard';
 import { mapApiBreakdownSegments } from '@/services/api/mappers';
 import type { Activity } from '@/types';

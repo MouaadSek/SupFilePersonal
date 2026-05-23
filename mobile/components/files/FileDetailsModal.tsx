@@ -12,7 +12,7 @@ import { X, FileText, Folder, Calendar, HardDrive, FileType, Link2 } from 'lucid
 import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui';
 import { FileItem } from '@/types';
-import { formatFileSize } from '@/data/mockData';
+import { formatFileSize } from '@/utils/format';
 import { FontSize, Spacing, BorderRadius } from '@/constants/theme';
 
 interface FileDetailsModalProps {

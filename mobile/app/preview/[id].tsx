@@ -40,7 +40,7 @@ import { EncodingType } from 'expo-file-system/legacy';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useFiles } from '@/contexts/FilesContext';
 import type { FileItem } from '@/types';
-import { formatFileSize, formatDate } from '@/data/mockData';
+import { formatFileSize, formatDate } from '@/utils/format';
 import { FontSize, Spacing, BorderRadius, Colors } from '@/constants/theme';
 import { effectiveMimeTypeForFile, isImageFile, fileExtensionLabel } from '@/utils/mimeFromFilename';
 import { FileExtensionBadge } from '@/components/files/FileExtensionBadge';
