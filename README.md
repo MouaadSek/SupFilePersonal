@@ -1,67 +1,28 @@
-# SUPFILE (Expo mobile app)
+# SUPFile
 
-Cloud storage client for the SUPFile API.
+Monorepo for the SUPFile project (backend, web, mobile).
 
-## Prerequisites
+## Git workflow
 
-- Node.js 20+
-- [Expo](https://docs.expo.dev/) (`npx expo`)
-- SUPFile API running (see backend below)
+- **main** — stable, production-ready code only (no direct pushes).
+- **develop** — continuous integration; base branch for features.
+- **feat/prenom** — feature branches (e.g. `feat/dhaker`, `feat/mouadh`).
+- **hotfix/...** — urgent fixes from `main`, merged back into `main` and `develop`.
 
-## Backend API
+Feature work merges into `develop` via Pull Request (at least one reviewer). Releases merge `develop` → `main`.
 
-The API lives in a separate clone (e.g. `~/server` next to this repo).
+Commit messages follow: `type(scope): short description` (e.g. `feat(auth): add JWT login`).
 
-```bash
-cd ~/server
-cp .env.example .env
-# Edit .env: DB_PASSWORD, JWT_SECRET (required)
+ 
+## Local setup
 
-npm install
-npm run dev
+1. Copy `.env.example` to `.env` at the repo root and set `DB_PASSWORD`, `JWT_SECRET`, etc.
+2. **API** — `cd server && npm install && npm run dev` (port 3000), or `docker compose up` from the repo root.
+3. **Web** — `cd client-web && npm install && npm run dev` (port 4000).
+4. **Mobile** — `cd mobile && cp .env.example .env`, set `EXPO_PUBLIC_API_URL`, then `npm install && npx expo start`.
+
+## Remote
+
+```text
+git@github.com:dhakerrhim/supfileDev.git
 ```
-
-Or with Docker (from `server/`, ensure parent paths exist or adjust compose):
-
-```bash
-export DB_PASSWORD=yourpassword JWT_SECRET=your-long-secret
-docker compose up --build
-```
-
-API listens on **port 3000**. Check: `curl http://localhost:3000/health`
-
-## Connect the app to the API
-
-1. Copy env: `cp .env.example .env`
-2. Set `EXPO_PUBLIC_API_URL` to the machine running the API:
-   - iOS simulator / web: `http://localhost:3000`
-   - Android emulator: `http://10.0.2.2:3000`
-   - Physical device: `http://<your-pc-lan-ip>:3000` (same Wi‑Fi as the phone)
-3. Restart Expo after changing env (`npx expo start -c`)
-
-## Run the app
-
-```bash
-npm install
-npx expo start
-```
-
-Scan the QR code with Expo Go (device) or press `a` / `i` for emulator.
-
-## Auth
-
-Register or log in in the app. The API returns a JWT; the app stores it and sends `Authorization: Bearer <token>` on protected routes.
-
-## Features wired to the API
-
-| Screen | API |
-|--------|-----|
-| Login / Register | `POST /auth/login`, `POST /auth/register`, `GET /auth/me` |
-| Home | `GET /dashboard/quota`, `/recent`, `/breakdown` |
-| Files | `GET/POST/PATCH/DELETE /folders`, `POST /files/upload`, `GET /search` |
-| Trash | `GET /files/trash`, restore, permanent delete, empty |
-| Shares | `GET/POST/DELETE /shares`, `GET /shares/with-me`, folder members |
-| Profile | `PUT /users/me`, password, avatar |
-| Preview | `GET /files/:id`, preview, download |
-
-Pull-to-refresh on Files and focus refresh on Files/Shares reload data from the API.

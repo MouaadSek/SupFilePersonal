@@ -1,19 +1,49 @@
-# v0 sandbox internal files
-__v0_runtime_loader.js
-__v0_devtools.tsx
-__v0_jsx-dev-runtime.ts
-.snowflake/
-.v0-trash/
-.vercel/
-
-# Environment variables
+# Secrets and local env
 .env
-.env*.local
+.env.local
+.env.*.local
+*.pem
 
-# Expo
-.expo/
+# Dependencies
+node_modules/
 
-# Common ignores
-node_modules
+# Build outputs
+dist/
+build/
 .next/
+out/
+*.tsbuildinfo
+
+# Logs and caches
+logs/
+*.log
+npm-debug.log*
+.pnpm-debug.log*
+.cache/
+
+# Test / coverage
+coverage/
+
+# OS / editor
 .DS_Store
+Thumbs.db
+.idea/
+*.swp
+*.swo
+
+# React Native (common)
+.expo/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Server upload volume — never commit uploaded files
+server/storage/*
+!server/storage/.gitkeep
+.claude/
+ 
+.claude/
+ 
+ 
