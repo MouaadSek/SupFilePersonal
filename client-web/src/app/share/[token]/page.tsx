@@ -408,7 +408,7 @@ export default function SharePage({ params }: { params: { token: string } }) {
                     </div>
                   )}
                   <p className="text-xs text-slate-400 mt-2 text-center">
-                    {shareData.files.length} file{shareData.files.length !== 1 ? 's' : ''} in this folder
+                    {shareData.files?.length} file{shareData.files?.length !== 1 ? 's' : ''} in this folder
                   </p>
                 </div>
               )}
