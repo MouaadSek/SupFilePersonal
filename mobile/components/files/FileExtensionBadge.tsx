@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, type StyleProp, type ViewStyle } from 'react-na
 import { useTheme } from '@/contexts/ThemeContext';
 import { fileExtensionLabel, effectiveMimeTypeForFile } from '@/utils/mimeFromFilename';
 import { BorderRadius } from '@/constants/theme';
-import { getFileColor } from '@/utils/fileColors';
+import { getFileColor } from '@/utils/format';
 import type { FileItem } from '@/types';
 
 type Size = 'sm' | 'md' | 'lg';

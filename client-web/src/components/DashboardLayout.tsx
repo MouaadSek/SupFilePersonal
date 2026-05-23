@@ -47,6 +47,7 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
   const [suggestIdx, setSuggestIdx] = useState(-1);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  const [avatarImgError, setAvatarImgError] = useState(false);
   const searchWrapRef = useRef<HTMLDivElement>(null);
   const quotaUsed  = Number(user?.quota_used  ?? 0);
   const quotaTotal = Number(user?.quota_total ?? 32212254720);
@@ -78,6 +79,8 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
     }, 300);
     return () => clearTimeout(timer);
   }, [searchVal]);
+
+  useEffect(() => { setAvatarImgError(false); }, [user?.avatar_url]);
 
   useEffect(() => {
     if (!showSuggest) return;
@@ -299,12 +302,13 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
               className="flex items-center rounded-full hover:ring-2 hover:ring-brand/30 transition"
               aria-label="User menu"
             >
-              {user?.avatar_url ? (
+              {user?.avatar_url && !avatarImgError ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}${user.avatar_url}`}
                   alt={user.display_name}
                   className="w-8 h-8 rounded-full object-cover"
+                  onError={() => setAvatarImgError(true)}
                 />
               ) : (
                 <div className="w-8 h-8 rounded-full bg-brand/20 flex items-center justify-center text-brand font-semibold text-sm">

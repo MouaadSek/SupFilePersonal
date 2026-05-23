@@ -82,6 +82,9 @@ export default function SettingsPage() {
   // theme
   const [isDark, setIsDark] = useState(false);
 
+  // avatar image error fallback
+  const [avatarImgError, setAvatarImgError] = useState(false);
+
   // toast
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -91,6 +94,8 @@ export default function SettingsPage() {
       setEmail(user.email ?? '');
     }
   }, [user]);
+
+  useEffect(() => { setAvatarImgError(false); }, [localAvatarUrl, user?.avatar_url]);
 
   useEffect(() => {
     setIsDark(getTheme() === 'dark');
@@ -214,9 +219,9 @@ export default function SettingsPage() {
                   title="Click to change avatar"
                   className="relative w-16 h-16 rounded-2xl shrink-0 cursor-pointer group focus:outline-none focus:ring-2 focus:ring-brand"
                 >
-                  {avatarSrc ? (
+                  {avatarSrc && !avatarImgError ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={avatarSrc} alt="Avatar" className="w-full h-full rounded-2xl object-cover" />
+                    <img src={avatarSrc} alt="Avatar" className="w-full h-full rounded-2xl object-cover" onError={() => setAvatarImgError(true)} />
                   ) : (
                     <div className="w-full h-full rounded-2xl bg-brand/15 flex items-center justify-center text-brand font-bold text-2xl">
                       {user?.display_name?.[0]?.toUpperCase() ?? '?'}
@@ -371,27 +376,6 @@ export default function SettingsPage() {
             <p className="text-xs text-slate-mid dark:text-slate-400">{pct}% used · {fmtGB(quotaTotal - quotaUsed)} free</p>
           </div>
         </Section>
-
-        {/* ── Danger zone ── */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-red-200 dark:border-red-900/50 overflow-hidden">
-          <div className="px-6 py-5 border-b border-red-100 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10">
-            <h2 className="text-base font-semibold text-red-600 dark:text-red-400">Danger Zone</h2>
-            <p className="text-sm text-red-400 dark:text-red-500 mt-0.5">These actions are irreversible.</p>
-          </div>
-          <div className="px-6 py-5 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-slate-dark dark:text-slate-100">Log out of all sessions</p>
-              <p className="text-xs text-slate-mid dark:text-slate-400 mt-0.5">Revokes your current JWT and returns to login.</p>
-            </div>
-            <button
-              onClick={logout}
-              className="px-4 py-2 text-sm border border-red-300 dark:border-red-700 text-red-500 rounded-xl
-                         hover:bg-red-500 hover:text-white transition font-medium"
-            >
-              Log out
-            </button>
-          </div>
-        </div>
 
       </div>
 
