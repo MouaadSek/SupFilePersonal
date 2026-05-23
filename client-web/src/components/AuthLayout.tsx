@@ -6,16 +6,16 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
       {/* Decorative blobs */}
       <div
         aria-hidden
-        className="fixed top-0 left-0 w-[600px] h-[600px] rounded-full opacity-20 pointer-events-none"
+        className="blob-drift fixed top-0 left-0 w-[600px] h-[600px] rounded-full opacity-20 pointer-events-none"
         style={{ background: 'radial-gradient(circle, #2da2fd 0%, transparent 70%)', transform: 'translate(-30%, -30%)' }}
       />
       <div
         aria-hidden
-        className="fixed bottom-0 right-0 w-[500px] h-[500px] rounded-full opacity-15 pointer-events-none"
+        className="blob-drift2 fixed bottom-0 right-0 w-[500px] h-[500px] rounded-full opacity-15 pointer-events-none"
         style={{ background: 'radial-gradient(circle, #3cb5ff 0%, transparent 70%)', transform: 'translate(30%, 30%)' }}
       />
 
-      <div className="relative z-10 w-full max-w-md">
+      <div className="page-enter relative z-10 w-full max-w-md">
         {children}
 
         {/* Footer note */}

@@ -69,7 +69,7 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
                 href={href}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                   active
-                    ? 'bg-brand/10 text-brand dark:bg-brand/20 dark:text-brand'
+                    ? 'bg-brand/10 text-brand dark:bg-brand/20 dark:text-brand ring-1 ring-brand/20 dark:ring-brand/30'
                     : 'text-slate-mid dark:text-slate-400 hover:bg-brand-bg dark:hover:bg-slate-700 hover:text-slate-dark dark:hover:text-slate-100'
                 }`}
               >
