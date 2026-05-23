@@ -181,7 +181,7 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
           <p className="text-xs text-slate-mid dark:text-slate-400">{pct}% used</p>
         </div>
 
-        {/* User + logout */}
+        {/* User info — sign-out is in the header avatar dropdown */}
         <div className="px-4 py-4 border-t border-slate-light dark:border-slate-700 flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-brand/20 flex items-center justify-center text-brand font-semibold text-sm">
             {user?.display_name?.[0]?.toUpperCase() ?? '?'}
@@ -192,13 +192,6 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
             </p>
             <p className="text-xs text-slate-mid dark:text-slate-400 truncate">{user?.email}</p>
           </div>
-          <button
-            onClick={onLogout}
-            aria-label="Logout"
-            className="text-slate-mid dark:text-slate-400 hover:text-red-500 transition-colors cursor-pointer"
-          >
-            <IconLogout />
-          </button>
         </div>
       </aside>
 

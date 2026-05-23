@@ -4,8 +4,8 @@ import { useState, useEffect, type FormEvent } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { apiLogin } from '@/lib/api';
-import { saveToken } from '@/lib/auth';
+import { apiLogin, apiMe } from '@/lib/api';
+import { saveToken, getToken } from '@/lib/auth';
 import AuthLayout from '@/components/AuthLayout';
 import { getPublicApiBase } from '@/lib/apiBase';
 
@@ -15,6 +15,13 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Redirect to dashboard if already logged in with a valid session
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    apiMe().then(() => router.replace('/dashboard')).catch(() => {/* token invalid — stay on login */});
+  }, [router]);
 
   // Handle OAuth redirect: /login?token=... or /login?error=oauth_failed
   useEffect(() => {
