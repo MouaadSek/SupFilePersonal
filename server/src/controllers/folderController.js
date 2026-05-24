@@ -1,5 +1,6 @@
 const { query } = require('../db');
 const zipService = require('../services/zipService');
+const { sendShareInviteEmail } = require('../services/emailService');
 
 // GET /folders  — root level
 async function listRoot(req, res, next) {
@@ -132,22 +133,48 @@ async function addMember(req, res, next) {
     if (!user_id) return res.status(400).json({ error: 'user_id is required' });
 
     const folderResult = await query(
-      'SELECT owner_id FROM folders WHERE id = $1 AND trashed = FALSE',
+      `SELECT f.owner_id, f.name AS folder_name,
+              u.display_name AS owner_name, u.email AS owner_email
+       FROM folders f
+       JOIN users u ON u.id = f.owner_id
+       WHERE f.id = $1 AND f.trashed = FALSE`,
       [req.params.id]
     );
-    if (!folderResult.rows[0]) return res.status(404).json({ error: 'Folder not found' });
-    if (folderResult.rows[0].owner_id !== req.user.id) {
+    const folder = folderResult.rows[0];
+    if (!folder) return res.status(404).json({ error: 'Folder not found' });
+    if (folder.owner_id !== req.user.id) {
       return res.status(403).json({ error: 'Only the folder owner can manage sharing' });
     }
     if (user_id === req.user.id) {
       return res.status(400).json({ error: 'Cannot share a folder with yourself' });
     }
 
+    const memberResult = await query(
+      'SELECT email, display_name FROM users WHERE id = $1',
+      [user_id]
+    );
+    const member = memberResult.rows[0];
+    if (!member) return res.status(404).json({ error: 'User not found' });
+
     await query(
       `INSERT INTO folder_members (folder_id, user_id, permission) VALUES ($1, $2, $3)
        ON CONFLICT (folder_id, user_id) DO UPDATE SET permission = EXCLUDED.permission`,
       [req.params.id, user_id, permission]
     );
+
+    const ownerName = folder.owner_name?.trim() || folder.owner_email || 'Someone';
+    try {
+      await sendShareInviteEmail({
+        to: member.email,
+        folderName: folder.folder_name,
+        ownerName,
+        permission,
+        folderId: req.params.id,
+      });
+    } catch (emailErr) {
+      console.error('[share] invite email failed:', emailErr.message);
+    }
+
     return res.status(201).json({ message: 'Member added' });
   } catch (err) {
     next(err);
