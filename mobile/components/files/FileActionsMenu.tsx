@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Modal,
   Pressable,
+  ScrollView,
 } from 'react-native';
 import {
   X,
@@ -17,6 +18,7 @@ import {
   Move,
   Info,
   ExternalLink,
+  LogOut,
 } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FileItem } from '@/types';
@@ -35,6 +37,8 @@ interface FileActionsMenuProps {
   onOpenWithExternalApp: () => void;
   onMove: () => void;
   onDetails: () => void;
+  /** Pour les dossiers partagés *avec* l'utilisateur — quitter sans supprimer. */
+  onLeaveShare?: () => void;
 }
 
 export function FileActionsMenu({
@@ -49,48 +53,72 @@ export function FileActionsMenu({
   onOpenWithExternalApp,
   onMove,
   onDetails,
+  onLeaveShare,
 }: FileActionsMenuProps) {
   const { colors } = useTheme();
 
   if (!file) return null;
 
-  const actions = [
-    { icon: Edit3, label: 'Renommer', onPress: onRename, color: colors.text },
-    { icon: Share2, label: 'Partager', onPress: onShare, color: colors.text },
-    ...(onShareCollaboration
-      ? [
-          {
-            icon: Users,
-            label: 'Partage & collaboration',
-            onPress: onShareCollaboration,
-            color: colors.primary,
-          } as const,
-        ]
-      : []),
-    ...(file.type === 'file' && (file.localUri || file.downloadUrl)
-      ? [
-          {
-            icon: ExternalLink,
-            label: 'Ouvrir avec une application',
-            onPress: onOpenWithExternalApp,
-            color: colors.text,
-          },
-        ]
-      : []),
-    ...(file.type === 'file' || file.type === 'folder'
-      ? [
-          {
-            icon: Download,
-            label: file.type === 'folder' ? 'Télécharger le dossier (ZIP)' : 'Télécharger',
-            onPress: onDownload,
-            color: colors.text,
-          },
-        ]
-      : []),
-    { icon: Move, label: 'Deplacer', onPress: onMove, color: colors.text },
-    { icon: Info, label: 'Details', onPress: onDetails, color: colors.text },
-    { icon: Trash2, label: 'Supprimer', onPress: onDelete, color: colors.error },
-  ];
+  // Permission gating: items the user doesn't own are limited to read actions
+  // (open / download / details) unless they have explicit 'write' permission,
+  // in which case rename is also allowed. Delete/move stay owner-only because
+  // the server's update/trash endpoints still check owner_id.
+  const isShared = !!file.shared;
+  const canWrite = !isShared || file.permission === 'write';
+  const canDelete = !isShared; // owner-only
+  const canMove = !isShared; // owner-only
+  const canShareCollab = !isShared; // only the owner manages members
+
+  const actions: {
+    icon: typeof Edit3;
+    label: string;
+    onPress: () => void;
+    color: string;
+  }[] = [];
+
+  if (canWrite) {
+    actions.push({ icon: Edit3, label: 'Renommer', onPress: onRename, color: colors.text });
+  }
+  actions.push({ icon: Share2, label: 'Partager', onPress: onShare, color: colors.text });
+  if (canShareCollab && onShareCollaboration) {
+    actions.push({
+      icon: Users,
+      label: 'Partage & collaboration',
+      onPress: onShareCollaboration,
+      color: colors.primary,
+    });
+  }
+  if (file.type === 'file' && (file.localUri || file.downloadUrl)) {
+    actions.push({
+      icon: ExternalLink,
+      label: 'Ouvrir avec une application',
+      onPress: onOpenWithExternalApp,
+      color: colors.text,
+    });
+  }
+  actions.push({
+    icon: Download,
+    label: file.type === 'folder' ? 'Télécharger le dossier (ZIP)' : 'Télécharger',
+    onPress: onDownload,
+    color: colors.text,
+  });
+  if (canMove) {
+    actions.push({ icon: Move, label: 'Deplacer', onPress: onMove, color: colors.text });
+  }
+  actions.push({ icon: Info, label: 'Details', onPress: onDetails, color: colors.text });
+
+  // Shared folders get "Quitter le dossier" instead of "Supprimer" — recipient
+  // can always remove themselves, but the folder/files belong to the owner.
+  if (isShared && file.type === 'folder' && onLeaveShare) {
+    actions.push({
+      icon: LogOut,
+      label: 'Quitter le dossier',
+      onPress: onLeaveShare,
+      color: colors.error,
+    });
+  } else if (canDelete) {
+    actions.push({ icon: Trash2, label: 'Supprimer', onPress: onDelete, color: colors.error });
+  }
 
   return (
     <Modal
@@ -109,25 +137,34 @@ export function FileActionsMenu({
               <X size={24} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
-          
+
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          
-          {actions.map((action, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.action}
-              onPress={() => {
-                action.onPress();
-                onClose();
-              }}
-              activeOpacity={0.7}
-            >
-              <action.icon size={20} color={action.color} />
-              <Text style={[styles.actionText, { color: action.color }]}>
-                {action.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+
+          {/* ScrollView so all actions stay reachable on small phones where the
+              menu would otherwise overflow the top of the screen. */}
+          <ScrollView
+            style={styles.actionsScroll}
+            contentContainerStyle={styles.actionsScrollContent}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
+            {actions.map((action, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.action}
+                onPress={() => {
+                  action.onPress();
+                  onClose();
+                }}
+                activeOpacity={0.7}
+              >
+                <action.icon size={20} color={action.color} />
+                <Text style={[styles.actionText, { color: action.color }]}>
+                  {action.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
       </Pressable>
     </Modal>
@@ -144,6 +181,15 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     paddingBottom: Spacing.xxxl,
+    // Cap the sheet so its top never goes above the screen even with many
+    // actions — the inner ScrollView handles overflow.
+    maxHeight: '85%',
+  },
+  actionsScroll: {
+    flexGrow: 0,
+  },
+  actionsScrollContent: {
+    paddingBottom: Spacing.md,
   },
   header: {
     flexDirection: 'row',

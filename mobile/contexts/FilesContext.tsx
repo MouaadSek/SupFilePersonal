@@ -25,6 +25,7 @@ import {
   apiTrashFolder,
   apiRestoreFolder,
   apiInviteFolderMember,
+  apiRemoveFolderMember,
 } from '@/services/api/folders';
 import {
   apiUpdateFile,
@@ -128,6 +129,8 @@ interface FilesContextType {
   }) => Promise<ShareLink>;
   revokePublicShareLink: (linkId: string) => void;
   inviteUserToFolder: (folderId: string, recipientEmail: string) => void;
+  /** Remove the current user from a folder shared with them ("Quitter le dossier"). */
+  leaveSharedFolder: (folderId: string) => Promise<void>;
 }
 
 const FilesContext = createContext<FilesContextType | undefined>(undefined);
@@ -159,7 +162,7 @@ async function persistUploadedLocalUri(
 }
 
 export function FilesProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isInitializing, refreshSession } = useAuth();
+  const { isAuthenticated, isInitializing, refreshSession, user } = useAuth();
   const [files, setFiles] = useState<FileItem[]>([]);
   const [shareLinks, setShareLinks] = useState<ShareLink[]>([]);
   const [incomingShares, setIncomingShares] = useState<IncomingShareEntry[]>([]);
@@ -665,6 +668,29 @@ export function FilesProvider({ children }: { children: ReactNode }) {
     })();
   }, []);
 
+  const leaveSharedFolder = useCallback(
+    async (folderId: string) => {
+      if (!user) return;
+      try {
+        await apiRemoveFolderMember(folderId, user.id);
+        // Drop the folder + its descendants from the cache and reset breadcrumb
+        // if the user is currently inside it.
+        setFiles((prev) => prev.filter((f) => f.id !== folderId && f.parentId !== folderId));
+        setCurrentFolder((cur) => (cur === folderId ? null : cur));
+        // Refresh "Shared with me" so the entry disappears there too.
+        try {
+          const incoming = await apiSharedWithMe();
+          setIncomingShares(incoming.map(mapIncomingShare));
+        } catch {
+          /* not critical — list will re-fetch on next focus */
+        }
+      } catch (err) {
+        showApiError(err, 'Impossible de quitter le dossier.');
+      }
+    },
+    [user],
+  );
+
   const inviteUserToFolder = useCallback((folderId: string, recipientEmail: string) => {
     const trimmed = recipientEmail.trim();
     if (!trimmed.includes('@')) {
@@ -728,6 +754,7 @@ export function FilesProvider({ children }: { children: ReactNode }) {
         createPublicShareLink,
         revokePublicShareLink,
         inviteUserToFolder,
+        leaveSharedFolder,
       }}
     >
       {children}

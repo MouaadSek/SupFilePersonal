@@ -67,6 +67,7 @@ export function mapApiFolder(
     parentId: f.parent_id,
     path,
     itemCount: Number(f.item_count) || 0,
+    ...(f.shared ? { shared: true, permission: (f.permission ?? 'read') as 'read' | 'write' } : {}),
     ...(opts?.deletedAt ? { deletedAt: opts.deletedAt, deleteGroupId: opts.deleteGroupId ?? f.id } : {}),
   };
 }
@@ -99,6 +100,7 @@ export function mapApiFile(
             : {}),
         }
       : {}),
+    ...(f.shared ? { shared: true, permission: (f.permission ?? 'read') as 'read' | 'write' } : {}),
     ...(opts?.deletedAt ? { deletedAt: opts.deletedAt, deleteGroupId: opts.deleteGroupId ?? f.id } : {}),
   };
 }

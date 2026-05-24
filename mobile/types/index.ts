@@ -34,6 +34,13 @@ export interface FileItem {
   deletedAt?: Date;
   /** Regroupe les nœuds supprimés ensemble (ex. dossier + contenu) */
   deleteGroupId?: string;
+  /** true when this item descends from a folder shared *to* the current user
+   *  (i.e. they're a folder_member, not the owner). Used by the action menu
+   *  to hide owner-only actions (rename / delete / move). */
+  shared?: boolean;
+  /** Caller's effective permission on a shared folder/file ('read' | 'write').
+   *  Undefined for owned items. */
+  permission?: 'read' | 'write';
 }
 
 export interface ShareLink {

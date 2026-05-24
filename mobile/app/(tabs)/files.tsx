@@ -97,6 +97,7 @@ export default function FilesScreen() {
     refreshCurrentFolder,
     searchFiles,
     fetchSearchResults,
+    leaveSharedFolder,
   } = useFiles();
 
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
@@ -791,6 +792,27 @@ export default function FilesScreen() {
           if (selectedFile) setShareCollabTarget(selectedFile);
           setShowActionsMenu(false);
           setShareCollabVisible(true);
+        }}
+        onLeaveShare={() => {
+          if (!selectedFile || selectedFile.type !== 'folder') return;
+          const folderName = selectedFile.name;
+          const folderId = selectedFile.id;
+          Alert.alert(
+            'Quitter le dossier',
+            `Vous n'aurez plus accès à « ${folderName} ». Le propriétaire conserve son contenu.`,
+            [
+              { text: 'Annuler', style: 'cancel' },
+              {
+                text: 'Quitter',
+                style: 'destructive',
+                onPress: async () => {
+                  await leaveSharedFolder(folderId);
+                  setSelectedFile(null);
+                  setShowActionsMenu(false);
+                },
+              },
+            ],
+          );
         }}
       />
 

@@ -50,3 +50,12 @@ export async function apiInviteFolderMember(
     body: { user_id: user.id, permission },
   });
 }
+
+/** Remove a member from a shared folder. The user can always remove themselves
+ *  (used by "Quitter le dossier"); the owner can remove anyone. */
+export async function apiRemoveFolderMember(
+  folderId: string,
+  userId: string,
+): Promise<void> {
+  await apiRequest(`/folders/${folderId}/members/${userId}`, { method: 'DELETE' });
+}

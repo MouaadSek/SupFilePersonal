@@ -19,6 +19,11 @@ export type ApiFolder = {
   updated_at: string;
   /** Direct children (subfolders + files), from API */
   item_count?: number;
+  /** Server marks this true on root-level shared folders + every descendant
+   *  returned via listFolder when the caller is a folder_member, not the owner. */
+  shared?: boolean;
+  /** Caller's effective folder_members.permission on a shared folder. */
+  permission?: 'read' | 'write' | null;
 };
 
 export type ApiFile = {
@@ -31,6 +36,9 @@ export type ApiFile = {
   trashed?: boolean;
   created_at: string;
   updated_at: string;
+  /** Stamped by listFolder when the parent folder is shared with the caller. */
+  shared?: boolean;
+  permission?: 'read' | 'write' | null;
 };
 
 export type ApiShare = {
