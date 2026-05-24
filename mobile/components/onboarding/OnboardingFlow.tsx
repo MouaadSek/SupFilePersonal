@@ -85,7 +85,10 @@ export function OnboardingFlow({ onComplete }: Props) {
 
   const goNext = useCallback(() => {
     if (index < SLIDES.length - 1) {
-      listRef.current?.scrollToOffset({ offset: SCREEN_W * (index + 1), animated: true });
+      const nextIndex = index + 1;
+      listRef.current?.scrollToOffset({ offset: SCREEN_W * nextIndex, animated: true });
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setIndex(nextIndex);
     } else {
       void finish();
     }
