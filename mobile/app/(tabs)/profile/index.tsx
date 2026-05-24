@@ -333,7 +333,7 @@ export default function ProfileScreen() {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ImagePicker.MediaType.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.85,
@@ -371,7 +371,13 @@ export default function ProfileScreen() {
       {
         text: 'Déconnexion',
         style: 'destructive',
-        onPress: () => void logout(),
+        onPress: async () => {
+          try {
+            await logout();
+          } finally {
+            router.replace('/(auth)/login');
+          }
+        },
       },
     ]);
   };
