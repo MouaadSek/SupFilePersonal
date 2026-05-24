@@ -165,11 +165,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   listPreview: {
-    marginRight: 0,
+    width: 44,
+    height: 44,
+    flexShrink: 0,
   },
   listContent: {
     flex: 1,
     marginLeft: Spacing.md,
+    minWidth: 0,
   },
   listName: {
     fontSize: FontSize.md,
@@ -181,5 +184,6 @@ const styles = StyleSheet.create({
   },
   listMenuButton: {
     padding: Spacing.sm,
+    flexShrink: 0,
   },
 });
