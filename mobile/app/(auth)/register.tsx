@@ -110,6 +110,29 @@ export default function RegisterScreen() {
           </View>
         }
       >
+        {/* Google sign-in is rendered BEFORE the form fields on register so it
+            stays above the fold — with 4 inputs + remember-me + primary button
+            + terms text, an Android user landing on this screen otherwise has
+            to discover that the card scrolls before they can see the Google
+            button. (Login keeps Google after the form because login has only
+            2 inputs and everything fits.) */}
+        <AuthGoogleButton
+          disabled={isLoading}
+          onSuccess={async (idToken) => {
+            setErrors({});
+            try {
+              await loginWithGoogle(idToken, true);
+              router.replace('/(tabs)');
+            } catch (err) {
+              const message =
+                err instanceof ApiError ? err.message : 'Inscription Google impossible.';
+              setErrors({ form: message });
+            }
+          }}
+        />
+
+        <AuthDivider />
+
         <AuthTextField
           placeholder="Nom complet"
           value={name}
@@ -185,23 +208,6 @@ export default function RegisterScreen() {
           title="Créer mon compte"
           onPress={() => void handleRegister()}
           loading={isLoading}
-        />
-
-        <AuthDivider />
-
-        <AuthGoogleButton
-          disabled={isLoading}
-          onSuccess={async (idToken) => {
-            setErrors({});
-            try {
-              await loginWithGoogle(idToken, true);
-              router.replace('/(tabs)');
-            } catch (err) {
-              const message =
-                err instanceof ApiError ? err.message : 'Inscription Google impossible.';
-              setErrors({ form: message });
-            }
-          }}
         />
 
         <Text style={styles.terms}>

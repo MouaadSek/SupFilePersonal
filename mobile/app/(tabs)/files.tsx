@@ -130,70 +130,85 @@ export default function FilesScreen() {
     setImportMenuVisible(true);
   };
 
-  const uploadFromLibrary = async () => {
-    closeImportMenu();
-    try {
-      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!perm.granted) {
-        Alert.alert(
-          'Permission requise',
-          "Autorisez l'accès à la photothèque pour importer des photos ou vidéos.",
-        );
-        return;
-      }
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaType.All,
-        allowsMultipleSelection: true,
-        quality: 1,
-      });
-      if (result.canceled || !result.assets?.length) return;
-      for (const asset of result.assets) {
-        const payload = fromImagePickerAsset(asset);
-        await enqueueUploadWithProgress(payload, currentFolder);
-      }
-    } catch {
-      Alert.alert('Erreur', "Impossible d'importer le fichier. Veuillez réessayer.");
-    }
+  // Closing ImportMenuSheet (a Modal) immediately before opening the native
+  // image / document picker (also a Modal on Android) is racy — the sheet's
+  // 280ms exit animation overlaps the picker open, leaving an inert screen.
+  // Wait one animation cycle, then run the picker.
+  const IMPORT_SHEET_EXIT_MS = 320;
+  const afterImportSheetClose = (fn: () => void | Promise<void>) => {
+    setImportMenuVisible(false);
+    setTimeout(() => {
+      void fn();
+    }, IMPORT_SHEET_EXIT_MS);
   };
 
-  const uploadFromCamera = async () => {
-    closeImportMenu();
-    try {
-      const perm = await ImagePicker.requestCameraPermissionsAsync();
-      if (!perm.granted) {
-        Alert.alert(
-          'Permission requise',
-          "Autorisez l'accès à la caméra pour prendre une photo.",
-        );
-        return;
+  const uploadFromLibrary = () =>
+    afterImportSheetClose(async () => {
+      try {
+        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!perm.granted) {
+          Alert.alert(
+            'Permission requise',
+            "Autorisez l'accès à la photothèque pour importer des photos ou vidéos.",
+          );
+          return;
+        }
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaType.All,
+          allowsMultipleSelection: true,
+          quality: 1,
+        });
+        if (result.canceled || !result.assets?.length) return;
+        for (const asset of result.assets) {
+          const payload = fromImagePickerAsset(asset);
+          await enqueueUploadWithProgress(payload, currentFolder);
+        }
+      } catch (err) {
+        console.warn('[files] uploadFromLibrary failed', err);
+        Alert.alert('Erreur', "Impossible d'importer le fichier. Veuillez réessayer.");
       }
-      const result = await ImagePicker.launchCameraAsync({ quality: 1 });
-      if (result.canceled || !result.assets?.length) return;
-      for (const asset of result.assets) {
-        const payload = fromImagePickerAsset(asset);
-        await enqueueUploadWithProgress(payload, currentFolder);
-      }
-    } catch {
-      Alert.alert('Erreur', "Impossible d'importer la photo. Veuillez réessayer.");
-    }
-  };
+    });
 
-  const uploadFromDocumentPicker = async () => {
-    closeImportMenu();
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        multiple: true,
-        copyToCacheDirectory: true,
-      });
-      if (result.canceled || !result.assets?.length) return;
-      for (const asset of result.assets) {
-        const payload = fromDocumentPickerAsset(asset);
-        await enqueueUploadWithProgress(payload, currentFolder);
+  const uploadFromCamera = () =>
+    afterImportSheetClose(async () => {
+      try {
+        const perm = await ImagePicker.requestCameraPermissionsAsync();
+        if (!perm.granted) {
+          Alert.alert(
+            'Permission requise',
+            "Autorisez l'accès à la caméra pour prendre une photo.",
+          );
+          return;
+        }
+        const result = await ImagePicker.launchCameraAsync({ quality: 1 });
+        if (result.canceled || !result.assets?.length) return;
+        for (const asset of result.assets) {
+          const payload = fromImagePickerAsset(asset);
+          await enqueueUploadWithProgress(payload, currentFolder);
+        }
+      } catch (err) {
+        console.warn('[files] uploadFromCamera failed', err);
+        Alert.alert('Erreur', "Impossible d'importer la photo. Veuillez réessayer.");
       }
-    } catch {
-      Alert.alert('Erreur', "Impossible d'importer le document. Veuillez réessayer.");
-    }
-  };
+    });
+
+  const uploadFromDocumentPicker = () =>
+    afterImportSheetClose(async () => {
+      try {
+        const result = await DocumentPicker.getDocumentAsync({
+          multiple: true,
+          copyToCacheDirectory: true,
+        });
+        if (result.canceled || !result.assets?.length) return;
+        for (const asset of result.assets) {
+          const payload = fromDocumentPickerAsset(asset);
+          await enqueueUploadWithProgress(payload, currentFolder);
+        }
+      } catch (err) {
+        console.warn('[files] uploadFromDocumentPicker failed', err);
+        Alert.alert('Erreur', "Impossible d'importer le document. Veuillez réessayer.");
+      }
+    });
 
   const openMoveModal = useCallback((ids: string[]) => {
     if (!ids.length) return;

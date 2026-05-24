@@ -72,79 +72,95 @@ export default function HomeScreen() {
 
   const closeNewMenu = useCallback(() => setNewMenuVisible(false), []);
 
+  // BottomSheet renders a Modal, so does CreateFolderModal/ImagePicker on
+  // Android. Opening a second Modal while the first is still in its 280ms
+  // exit animation produces an inert "stuck" UI on Android — the sheet's
+  // close animation is the source of the "Nouveau dossier doesn't work
+  // from Accueil" and "upload button hits an error directly" reports.
+  // Closing the sheet first and waiting one animation cycle fixes both.
+  const SHEET_EXIT_MS = 320;
+  const afterSheetClose = (fn: () => void | Promise<void>) => {
+    setNewMenuVisible(false);
+    setTimeout(() => {
+      void fn();
+    }, SHEET_EXIT_MS);
+  };
+
   const handleCreateFolderSubmit = async (name: string) => {
     await createFolder(name, null);
     setCreateFolderVisible(false);
   };
 
-  const uploadFromLibrary = async () => {
-    closeNewMenu();
-    try {
-      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!perm.granted) {
-        Alert.alert(
-          'Permission requise',
-          "Autorisez l'accès à la photothèque pour importer des photos ou vidéos.",
-        );
-        return;
+  const uploadFromLibrary = () =>
+    afterSheetClose(async () => {
+      try {
+        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!perm.granted) {
+          Alert.alert(
+            'Permission requise',
+            "Autorisez l'accès à la photothèque pour importer des photos ou vidéos.",
+          );
+          return;
+        }
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaType.All,
+          allowsMultipleSelection: true,
+          quality: 1,
+        });
+        if (result.canceled || !result.assets?.length) return;
+        for (const asset of result.assets) {
+          const payload = fromImagePickerAsset(asset);
+          await enqueueUploadWithProgress(payload, null);
+        }
+      } catch (err) {
+        console.warn('[home] uploadFromLibrary failed', err);
+        Alert.alert('Erreur', "Impossible d'importer le fichier. Veuillez réessayer.");
       }
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaType.All,
-        allowsMultipleSelection: true,
-        quality: 1,
-      });
-      if (result.canceled || !result.assets?.length) return;
-      for (const asset of result.assets) {
-        const payload = fromImagePickerAsset(asset);
-        await enqueueUploadWithProgress(payload, null);
-      }
-    } catch {
-      Alert.alert('Erreur', "Impossible d'importer le fichier. Veuillez réessayer.");
-    }
-  };
+    });
 
-  const uploadFromCamera = async () => {
-    closeNewMenu();
-    try {
-      const perm = await ImagePicker.requestCameraPermissionsAsync();
-      if (!perm.granted) {
-        Alert.alert(
-          'Permission requise',
-          "Autorisez l'accès à la caméra pour prendre une photo.",
-        );
-        return;
+  const uploadFromCamera = () =>
+    afterSheetClose(async () => {
+      try {
+        const perm = await ImagePicker.requestCameraPermissionsAsync();
+        if (!perm.granted) {
+          Alert.alert(
+            'Permission requise',
+            "Autorisez l'accès à la caméra pour prendre une photo.",
+          );
+          return;
+        }
+        const result = await ImagePicker.launchCameraAsync({ quality: 1 });
+        if (result.canceled || !result.assets?.length) return;
+        for (const asset of result.assets) {
+          const payload = fromImagePickerAsset(asset);
+          await enqueueUploadWithProgress(payload, null);
+        }
+      } catch (err) {
+        console.warn('[home] uploadFromCamera failed', err);
+        Alert.alert('Erreur', "Impossible d'importer la photo. Veuillez réessayer.");
       }
-      const result = await ImagePicker.launchCameraAsync({ quality: 1 });
-      if (result.canceled || !result.assets?.length) return;
-      for (const asset of result.assets) {
-        const payload = fromImagePickerAsset(asset);
-        await enqueueUploadWithProgress(payload, null);
-      }
-    } catch {
-      Alert.alert('Erreur', "Impossible d'importer la photo. Veuillez réessayer.");
-    }
-  };
+    });
 
-  const uploadFromDocumentPicker = async () => {
-    closeNewMenu();
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        multiple: true,
-        copyToCacheDirectory: true,
-      });
-      if (result.canceled || !result.assets?.length) return;
-      for (const asset of result.assets) {
-        const payload = fromDocumentPickerAsset(asset);
-        await enqueueUploadWithProgress(payload, null);
+  const uploadFromDocumentPicker = () =>
+    afterSheetClose(async () => {
+      try {
+        const result = await DocumentPicker.getDocumentAsync({
+          multiple: true,
+          copyToCacheDirectory: true,
+        });
+        if (result.canceled || !result.assets?.length) return;
+        for (const asset of result.assets) {
+          const payload = fromDocumentPickerAsset(asset);
+          await enqueueUploadWithProgress(payload, null);
+        }
+      } catch (err) {
+        console.warn('[home] uploadFromDocumentPicker failed', err);
+        Alert.alert('Erreur', "Impossible d'importer le document. Veuillez réessayer.");
       }
-    } catch {
-      Alert.alert('Erreur', "Impossible d'importer le document. Veuillez réessayer.");
-    }
-  };
+    });
 
   const openCreateFolder = () => {
-    closeNewMenu();
-    setCreateFolderVisible(true);
+    afterSheetClose(() => setCreateFolderVisible(true));
   };
 
   const [recentActivities, setRecentActivities] = useState<Activity[]>([]);

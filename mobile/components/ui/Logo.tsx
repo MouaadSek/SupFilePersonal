@@ -1,19 +1,14 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { FontAwesome5 } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FontSize, Spacing } from '@/constants/theme';
-
-const GITHUB_MARK_BG = '#24292f';
 
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg';
   showText?: boolean;
-  /** Marque GitHub officielle (ex. connexion GitHub uniquement) */
-  githubMark?: boolean;
 }
 
-export function Logo({ size = 'md', showText = true, githubMark = false }: LogoProps) {
+export function Logo({ size = 'md', showText = true }: LogoProps) {
   const { colors } = useTheme();
 
   const getSize = () => {
@@ -39,7 +34,6 @@ export function Logo({ size = 'md', showText = true, githubMark = false }: LogoP
   };
 
   const iconSize = getSize();
-  const markBg = githubMark ? GITHUB_MARK_BG : colors.primary;
 
   return (
     <View style={styles.container}>
@@ -49,21 +43,12 @@ export function Logo({ size = 'md', showText = true, githubMark = false }: LogoP
           {
             width: iconSize,
             height: iconSize,
-            backgroundColor: markBg,
+            backgroundColor: colors.primary,
             borderRadius: iconSize * 0.25,
           },
         ]}
       >
-        {githubMark ? (
-          <FontAwesome5
-            name="github"
-            size={Math.round(iconSize * 0.52)}
-            color="#ffffff"
-            brand
-          />
-        ) : (
-          <Text style={[styles.iconText, { fontSize: iconSize * 0.5 }]}>S</Text>
-        )}
+        <Text style={[styles.iconText, { fontSize: iconSize * 0.5 }]}>S</Text>
       </View>
       {showText && (
         <Text style={[styles.text, { color: colors.text, fontSize: getFontSize() }]}>
