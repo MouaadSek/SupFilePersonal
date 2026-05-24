@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { router as expoRouter, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors, Spacing, Typography, BorderRadius } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
@@ -374,9 +374,15 @@ export default function ProfileScreen() {
         onPress: async () => {
           try {
             await logout();
-          } finally {
-            router.replace('/(auth)/login');
+          } catch (err) {
+            // logout() is now non-throwing, but stay defensive: navigate anyway.
+            console.warn('[profile] logout error', err);
           }
+          // Use the stable expo-router singleton rather than the hook's router:
+          // after setUser(null), the tabs layout re-renders into a <Redirect>
+          // and this component is about to unmount, so the captured hook value
+          // can be stale by the time this async continuation runs.
+          expoRouter.replace('/(auth)/login');
         },
       },
     ]);

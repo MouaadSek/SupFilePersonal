@@ -151,10 +151,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    // 1) Synchronous resets — give the UI immediate feedback and break out of the
+    //    authenticated state even if persistent storage later rejects.
     setUser(null);
     setAuthToken(null);
-    await persistToken(null);
-    await AsyncStorage.removeItem(REMEMBER_ME_KEY);
+
+    // 2) Best-effort cleanup of persistent storage. We swallow errors so logout
+    //    never rejects — otherwise a flaky AsyncStorage could leave the user in
+    //    a half-logged-out state where the in-memory state is cleared but the
+    //    token survives on disk and auto-restores on the next app launch.
+    try {
+      await persistToken(null);
+    } catch (err) {
+      console.warn('[auth] failed to clear persisted token', err);
+    }
+    try {
+      await AsyncStorage.removeItem(REMEMBER_ME_KEY);
+    } catch (err) {
+      console.warn('[auth] failed to clear remember-me flag', err);
+    }
   };
 
   const updateProfile = async (data: Partial<User>) => {
