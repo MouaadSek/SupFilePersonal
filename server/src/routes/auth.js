@@ -37,6 +37,7 @@ router.post('/google',
 
 router.post('/forgot-password',
   authLimiter,
+  loginLimiter,
   body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
   handleValidation,
   forgotPassword
@@ -44,6 +45,7 @@ router.post('/forgot-password',
 
 router.post('/reset-password',
   authLimiter,
+  loginLimiter,
   body('token').notEmpty().withMessage('token is required'),
   body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
   handleValidation,

@@ -6,6 +6,13 @@ const {
   verifyGoogleIdToken,
   findOrCreateGoogleUser,
 } = require('../services/googleUserService');
+const { sendPasswordResetEmail } = require('../services/emailService');
+const {
+  hashResetToken,
+  parseResetExpiresMs,
+  getClientOrigin,
+  formatExpiresLabel,
+} = require('../utils/passwordReset');
 
 const BCRYPT_COST = 12;
 
@@ -117,18 +124,32 @@ async function forgotPassword(req, res, next) {
     }
 
     const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetHash = crypto.createHash('sha256').update(resetToken).digest('hex');
-    const expires = new Date(Date.now() + 60 * 60 * 1000);
+    const resetHash = hashResetToken(resetToken);
+    const expiresMs = parseResetExpiresMs();
+    const expires = new Date(Date.now() + expiresMs);
+    const expiresLabel = formatExpiresLabel(expiresMs);
 
+    await query('DELETE FROM password_reset_tokens WHERE user_id = $1', [user.id]);
     await query(
-      `UPDATE users SET password_reset_token = $1, password_reset_expires = $2 WHERE id = $3`,
-      [resetHash, expires, user.id],
+      `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
+       VALUES ($1, $2, $3)`,
+      [user.id, resetHash, expires],
     );
+
+    const resetUrl = `${getClientOrigin()}/reset-password?token=${encodeURIComponent(resetToken)}`;
+    try {
+      await sendPasswordResetEmail({
+        to: user.email,
+        resetUrl,
+        expiresLabel,
+      });
+    } catch (emailErr) {
+      console.error('[forgot-password] email send failed:', emailErr.message);
+    }
 
     if (process.env.NODE_ENV !== 'production') {
       return res.json({ ...generic, dev_reset_token: resetToken });
     }
-    // Production: integrate email provider here; never expose token in response.
     return res.json(generic);
   } catch (err) {
     next(err);
@@ -142,21 +163,22 @@ async function resetPassword(req, res, next) {
     if (!token || !password || password.length < 8) {
       return res.status(400).json({ error: 'Valid token and password (min 8 chars) required' });
     }
-    const resetHash = crypto.createHash('sha256').update(String(token)).digest('hex');
+    const resetHash = hashResetToken(token);
     const result = await query(
-      `SELECT id FROM users
-       WHERE password_reset_token = $1 AND password_reset_expires > NOW()`,
+      `SELECT user_id FROM password_reset_tokens
+       WHERE token_hash = $1 AND expires_at > NOW()`,
       [resetHash],
     );
-    const user = result.rows[0];
-    if (!user) return res.status(400).json({ error: 'Invalid or expired reset token' });
+    const row = result.rows[0];
+    if (!row) return res.status(400).json({ error: 'Invalid or expired reset token' });
 
     const password_hash = await bcrypt.hash(password, BCRYPT_COST);
-    await query(
-      `UPDATE users SET password_hash = $1, password_reset_token = NULL, password_reset_expires = NULL
-       WHERE id = $2`,
-      [password_hash, user.id],
-    );
+    await query('UPDATE users SET password_hash = $1 WHERE id = $2', [
+      password_hash,
+      row.user_id,
+    ]);
+    await query('DELETE FROM password_reset_tokens WHERE user_id = $1', [row.user_id]);
+
     return res.json({ message: 'Password updated successfully' });
   } catch (err) {
     next(err);
