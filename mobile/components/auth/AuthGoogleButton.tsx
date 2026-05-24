@@ -46,10 +46,7 @@ export function AuthGoogleButton({ disabled = false, onSuccess }: Props) {
 
   const handlePress = async () => {
     if (!configured) {
-      Alert.alert(
-        'Google',
-        'Connexion Google non configurée. Définissez EXPO_PUBLIC_GOOGLE_* dans .env.',
-      );
+      Alert.alert('Google', "Google Sign-In n'est pas configuré.");
       return;
     }
     try {
