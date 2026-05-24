@@ -47,6 +47,16 @@ export async function apiMe() {
   return res.data as User;
 }
 
+export async function apiForgotPassword(email: string) {
+  const res = await api.post('/auth/forgot-password', { email });
+  return res.data as { message: string; dev_reset_token?: string };
+}
+
+export async function apiResetPassword(token: string, password: string) {
+  const res = await api.post('/auth/reset-password', { token, password });
+  return res.data as { message: string };
+}
+
 export interface User {
   id: string;
   email: string;
