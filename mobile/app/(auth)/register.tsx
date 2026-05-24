@@ -5,6 +5,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   Platform,
+  Modal,
+  ScrollView as RNScrollView,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Redirect, router } from 'expo-router';
@@ -32,6 +34,7 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
+  const [legalModal, setLegalModal] = useState<'terms' | 'privacy' | null>(null);
   const [errors, setErrors] = useState<{
     name?: string;
     email?: string;
@@ -203,10 +206,53 @@ export default function RegisterScreen() {
 
         <Text style={styles.terms}>
           En vous inscrivant, vous acceptez nos{' '}
-          <Text style={styles.termsLink}>conditions d&apos;utilisation</Text> et notre{' '}
-          <Text style={styles.termsLink}>politique de confidentialité</Text>.
+          <Text
+            style={styles.termsLink}
+            onPress={() => setLegalModal('terms')}
+          >
+            conditions d&apos;utilisation
+          </Text>
+          {' '}et notre{' '}
+          <Text
+            style={styles.termsLink}
+            onPress={() => setLegalModal('privacy')}
+          >
+            politique de confidentialité
+          </Text>.
         </Text>
       </AuthBrandedLayout>
+
+      {/* Legal modal */}
+      <Modal
+        visible={legalModal !== null}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setLegalModal(null)}
+      >
+        <View style={styles.legalOverlay}>
+          <View style={styles.legalCard}>
+            <Text style={styles.legalTitle}>
+              {legalModal === 'terms'
+                ? "Conditions d'utilisation"
+                : 'Politique de confidentialité'}
+            </Text>
+            <RNScrollView style={styles.legalScroll} showsVerticalScrollIndicator={false}>
+              <Text style={styles.legalBody}>
+                Application réalisée dans le cadre d'un projet académique. Aucun service
+                commercial n'est fourni. Les données saisies sont utilisées uniquement à
+                des fins de démonstration.
+              </Text>
+            </RNScrollView>
+            <TouchableOpacity
+              style={styles.legalCloseBtn}
+              onPress={() => setLegalModal(null)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.legalCloseText}>Fermer</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -287,5 +333,43 @@ const styles = StyleSheet.create({
     fontSize: FontSize.md,
     fontWeight: '700',
     color: AuthBranded.link,
+  },
+  legalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  legalCard: {
+    backgroundColor: AuthBranded.cardBackground,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: Spacing.xl,
+    paddingBottom: Platform.OS === 'ios' ? Spacing.xxxl : Spacing.xl,
+    maxHeight: '60%',
+  },
+  legalTitle: {
+    fontSize: FontSize.lg,
+    fontWeight: '700',
+    color: AuthBranded.cardTitle,
+    marginBottom: Spacing.md,
+  },
+  legalScroll: {
+    marginBottom: Spacing.lg,
+  },
+  legalBody: {
+    fontSize: FontSize.md,
+    color: AuthBranded.textMuted,
+    lineHeight: 22,
+  },
+  legalCloseBtn: {
+    backgroundColor: AuthBranded.primaryButton,
+    borderRadius: 10,
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+  },
+  legalCloseText: {
+    color: '#ffffff',
+    fontSize: FontSize.md,
+    fontWeight: '700',
   },
 });
