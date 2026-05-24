@@ -44,8 +44,9 @@ server/storage/*
 !server/storage/.gitkeep
 
 # IDE / tool config (local only)
-.claude/
 .cursor/
+.vscode/
+.idea/local/
 
 # Archives
 *.zip

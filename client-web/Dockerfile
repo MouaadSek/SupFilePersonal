@@ -7,7 +7,11 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# INTERNAL_API_URL: server-side proxy target baked into the routes manifest.
+# NEXT_PUBLIC_API_URL: kept for client-side SSR fallback (getPublicApiBase).
+ARG INTERNAL_API_URL=http://server:3000
 ARG NEXT_PUBLIC_API_URL=http://server:3000
+ENV INTERNAL_API_URL=$INTERNAL_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN npm run build
 

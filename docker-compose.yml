@@ -64,11 +64,13 @@ services:
       context: ./client-web
       dockerfile: Dockerfile
       args:
+        INTERNAL_API_URL: http://server:3000
         NEXT_PUBLIC_API_URL: http://server:3000
     restart: unless-stopped
     depends_on:
       - server
     environment:
+      INTERNAL_API_URL: http://server:3000
       NEXT_PUBLIC_API_URL: http://server:3000
     ports:
       - "4000:4000"
