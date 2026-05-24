@@ -4,6 +4,7 @@ const { query } = require('../db');
 const quotaService = require('../services/quotaService');
 const storageService = require('../services/storageService');
 const encryptionService = require('../services/encryptionService');
+const { getReadableFile } = require('../services/fileAccess');
 
 const STORAGE_PATH = process.env.STORAGE_PATH || './storage';
 
@@ -39,13 +40,11 @@ async function upload(req, res, next) {
 // GET /files/:id — metadata for clients (preview, recent shortcuts)
 async function getOne(req, res, next) {
   try {
-    const result = await query(
-      `SELECT id, name, mime_type, size, folder_id, created_at, updated_at, encrypted
-       FROM files WHERE id = $1 AND owner_id = $2 AND trashed = FALSE`,
-      [req.params.id, req.user.id]
-    );
-    if (!result.rows[0]) return res.status(404).json({ error: 'File not found' });
-    return res.json(result.rows[0]);
+    // Visible to file owner OR to any folder_members of the parent folder.
+    const file = await getReadableFile(req.params.id, req.user.id);
+    if (!file) return res.status(404).json({ error: 'File not found' });
+    const { id, name, mime_type, size, folder_id, created_at, updated_at, encrypted } = file;
+    return res.json({ id, name, mime_type, size, folder_id, created_at, updated_at, encrypted });
   } catch (err) {
     next(err);
   }
@@ -54,11 +53,8 @@ async function getOne(req, res, next) {
 // GET /files/:id/download
 async function download(req, res, next) {
   try {
-    const result = await query(
-      'SELECT * FROM files WHERE id = $1 AND owner_id = $2 AND trashed = FALSE',
-      [req.params.id, req.user.id]
-    );
-    const file = result.rows[0];
+    // Same ACL as getOne: owner OR folder_members of the parent folder.
+    const file = await getReadableFile(req.params.id, req.user.id);
     if (!file) return res.status(404).json({ error: 'File not found' });
 
     res.setHeader('Content-Disposition', `attachment; filename="${file.name}"`);
@@ -77,11 +73,8 @@ async function download(req, res, next) {
 // GET /files/:id/preview  (Range requests supported for unencrypted files)
 async function preview(req, res, next) {
   try {
-    const result = await query(
-      'SELECT * FROM files WHERE id = $1 AND owner_id = $2 AND trashed = FALSE',
-      [req.params.id, req.user.id]
-    );
-    const file = result.rows[0];
+    // Same ACL as getOne: owner OR folder_members of the parent folder.
+    const file = await getReadableFile(req.params.id, req.user.id);
     if (!file) return res.status(404).json({ error: 'File not found' });
 
     if (file.encrypted) {

@@ -3,6 +3,12 @@ const zipService = require('../services/zipService');
 const { sendShareInviteEmail } = require('../services/emailService');
 
 // GET /folders  — root level
+//
+// Returns the user's owned root folders PLUS folders shared with them via
+// folder_members (those are surfaced at the root regardless of where they
+// physically sit in the owner's tree, since the recipient has no parent
+// context to navigate into). Mobile/web use the `shared` flag to disable
+// owner-only actions (rename / delete / move) on member-only entries.
 async function listRoot(req, res, next) {
   try {
     const folders = await query(
@@ -10,10 +16,23 @@ async function listRoot(req, res, next) {
         (
           (SELECT COUNT(*)::int FROM folders c WHERE c.parent_id = f.id AND c.trashed = FALSE) +
           (SELECT COUNT(*)::int FROM files fi WHERE fi.folder_id = f.id AND fi.trashed = FALSE)
-        ) AS item_count
+        ) AS item_count,
+        FALSE AS shared,
+        NULL::text AS permission
        FROM folders f
        WHERE f.owner_id = $1 AND f.parent_id IS NULL AND f.trashed = FALSE
-       ORDER BY f.name`,
+       UNION ALL
+       SELECT f.*,
+        (
+          (SELECT COUNT(*)::int FROM folders c WHERE c.parent_id = f.id AND c.trashed = FALSE) +
+          (SELECT COUNT(*)::int FROM files fi WHERE fi.folder_id = f.id AND fi.trashed = FALSE)
+        ) AS item_count,
+        TRUE AS shared,
+        fm.permission
+       FROM folders f
+       JOIN folder_members fm ON fm.folder_id = f.id
+       WHERE fm.user_id = $1 AND f.trashed = FALSE AND f.owner_id <> $1
+       ORDER BY name`,
       [req.user.id]
     );
     const files = await query(
@@ -29,14 +48,25 @@ async function listRoot(req, res, next) {
 // GET /folders/:id
 async function listFolder(req, res, next) {
   try {
+    // Look up the folder + the caller's relationship to it (owner vs member).
     const folder = await query(
-      `SELECT * FROM folders WHERE id = $1 AND trashed = FALSE
-       AND (owner_id = $2 OR EXISTS (
-         SELECT 1 FROM folder_members WHERE folder_id = $1 AND user_id = $2
-       ))`,
+      `SELECT f.*,
+              fm.permission AS member_permission
+       FROM folders f
+       LEFT JOIN folder_members fm
+         ON fm.folder_id = f.id AND fm.user_id = $2
+       WHERE f.id = $1 AND f.trashed = FALSE
+         AND (f.owner_id = $2 OR fm.user_id IS NOT NULL)`,
       [req.params.id, req.user.id]
     );
-    if (!folder.rows[0]) return res.status(404).json({ error: 'Folder not found' });
+    const folderRow = folder.rows[0];
+    if (!folderRow) return res.status(404).json({ error: 'Folder not found' });
+
+    // If the caller isn't the owner they got here via folder_members, so every
+    // descendant is also "shared" (non-owned) for them — the mobile/web action
+    // menu uses this to hide owner-only actions.
+    const isShared = folderRow.owner_id !== req.user.id;
+    const effectivePermission = isShared ? folderRow.member_permission || 'read' : null;
 
     const subFolders = await query(
       `SELECT f.*,
@@ -53,7 +83,22 @@ async function listFolder(req, res, next) {
       'SELECT * FROM files WHERE folder_id = $1 AND trashed = FALSE ORDER BY name',
       [req.params.id]
     );
-    return res.json({ folder: folder.rows[0], folders: subFolders.rows, files: files.rows });
+
+    // Stamp the shared/permission flags on every child so the client doesn't
+    // have to walk the breadcrumb to find out.
+    const stampShared = (row) =>
+      isShared ? { ...row, shared: true, permission: effectivePermission } : row;
+
+    // Drop the member_permission helper column from the response — clients
+    // should use `shared` + `permission` consistently.
+    const { member_permission, ...cleanFolder } = folderRow;
+    return res.json({
+      folder: isShared
+        ? { ...cleanFolder, shared: true, permission: effectivePermission }
+        : cleanFolder,
+      folders: subFolders.rows.map(stampShared),
+      files: files.rows.map(stampShared),
+    });
   } catch (err) {
     next(err);
   }
