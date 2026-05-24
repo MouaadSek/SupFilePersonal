@@ -25,6 +25,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    # Single source of truth for secrets (SMTP, JWT, OAuth, DB password).
+    # Keep this file gitignored — it's loaded before the `environment:` block,
+    # so the explicit overrides below still win for keys that need a docker-
+    # specific value (DB_HOST=db, STORAGE_PATH=/app/storage, etc.).
+    env_file:
+      - ./server/.env
     environment:
       NODE_ENV: production
       PORT: 3000

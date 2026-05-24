@@ -12,6 +12,16 @@ const {
 
 function getTransporter() {
   if (!process.env.SMTP_HOST || !process.env.SMTP_USER) return null;
+
+  // Opt-in escape hatch for local dev behind a TLS-intercepting proxy
+  // (corporate firewall, antivirus, etc. that injects a self-signed CA).
+  // Defaults to strict verification; set SMTP_TLS_REJECT_UNAUTHORIZED=false
+  // ONLY in dev — never disable in production.
+  const tlsOpts =
+    process.env.SMTP_TLS_REJECT_UNAUTHORIZED === 'false'
+      ? { rejectUnauthorized: false }
+      : undefined;
+
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT || '587', 10),
@@ -20,6 +30,7 @@ function getTransporter() {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASSWORD,
     },
+    ...(tlsOpts ? { tls: tlsOpts } : {}),
   });
 }
 
