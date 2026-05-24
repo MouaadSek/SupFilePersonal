@@ -124,8 +124,9 @@ export default function LoginPage() {
 
         <div className="space-y-3">
           {/* Google */}
-          <a
-            href={`${getPublicApiBase()}/auth/oauth/google`}
+          <button
+            type="button"
+            onClick={() => { window.location.href = `${getPublicApiBase()}/auth/oauth/google`; }}
             className="flex items-center justify-center gap-3 w-full py-3 rounded-xl border border-slate-light dark:border-slate-600
                        bg-white dark:bg-slate-700 text-slate-dark dark:text-slate-100 text-sm font-medium
                        hover:bg-gray-50 dark:hover:bg-slate-600 hover:border-gray-300 dark:hover:border-slate-500
@@ -133,7 +134,7 @@ export default function LoginPage() {
           >
             <GoogleIcon />
             Continue with Google
-          </a>
+          </button>
         </div>
 
         <p className="text-center text-sm text-slate-mid dark:text-slate-400 mt-6">
