@@ -664,6 +664,118 @@ function PreviewModal({
   );
 }
 
+// ─── Folder picker modal (for bulk "Move to…") ───────────────────────────────
+
+function FolderPickerModal({
+  currentFolderId,
+  onClose,
+  onSelect,
+}: {
+  currentFolderId: string | null;
+  onClose: () => void;
+  onSelect: (dest: { id: string | null; name: string }) => void;
+}) {
+  const [browseFolderId, setBrowseFolderId] = useState<string | null>(null);
+  const [browseFolders, setBrowseFolders] = useState<Folder[]>([]);
+  const [browseCrumbs, setBrowseCrumbs] = useState<Crumb[]>([{ id: null, name: 'My Files' }]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    const url = browseFolderId ? `/folders/${browseFolderId}` : '/folders';
+    api.get(url)
+      .then(res => setBrowseFolders(res.data.folders ?? []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [browseFolderId]);
+
+  function navigateInto(f: Folder) {
+    setBrowseFolderId(f.id);
+    setBrowseCrumbs(c => [...c, { id: f.id, name: f.name }]);
+  }
+
+  function navigateToCrumb(id: string | null) {
+    const idx = browseCrumbs.findIndex(c => c.id === id);
+    setBrowseCrumbs(c => c.slice(0, idx + 1));
+    setBrowseFolderId(id);
+  }
+
+  const currentCrumb = browseCrumbs[browseCrumbs.length - 1];
+  const isSameLocation = browseFolderId === currentFolderId;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-light dark:border-slate-700
+                      w-full max-w-sm shadow-xl flex flex-col" style={{ maxHeight: '76vh' }}>
+        {/* Header */}
+        <div className="px-5 pt-5 pb-3 border-b border-slate-light dark:border-slate-700 shrink-0">
+          <h3 className="font-semibold text-slate-dark dark:text-slate-100 mb-2">Move to…</h3>
+          <nav className="flex items-center gap-1 text-xs flex-wrap">
+            {browseCrumbs.map((c, i) => (
+              <span key={i} className="flex items-center gap-1">
+                {i > 0 && <span className="text-slate-light dark:text-slate-500"><IconChevronRight /></span>}
+                <button
+                  onClick={() => navigateToCrumb(c.id)}
+                  className={`hover:text-brand transition-colors ${
+                    i === browseCrumbs.length - 1
+                      ? 'text-slate-dark dark:text-slate-100 font-medium cursor-default pointer-events-none'
+                      : 'text-slate-mid dark:text-slate-400 cursor-pointer'
+                  }`}
+                >
+                  {c.name}
+                </button>
+              </span>
+            ))}
+          </nav>
+        </div>
+
+        {/* Folder list */}
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {loading ? (
+            <div className="flex items-center justify-center py-10">
+              <div className="w-6 h-6 rounded-full border-4 border-brand border-t-transparent animate-spin" />
+            </div>
+          ) : browseFolders.length === 0 ? (
+            <p className="text-center text-sm text-slate-mid dark:text-slate-400 py-10">No folders here</p>
+          ) : (
+            <div className="py-1.5">
+              {browseFolders.map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => navigateInto(f)}
+                  className="flex items-center gap-3 w-full px-5 py-2.5 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left group"
+                >
+                  <span className="text-brand shrink-0"><IconFolder /></span>
+                  <span className="text-sm text-slate-dark dark:text-slate-100 truncate flex-1">{f.name}</span>
+                  <span className="text-slate-mid dark:text-slate-400 shrink-0 opacity-0 group-hover:opacity-100 transition">
+                    <IconChevronRight />
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 pb-5 pt-3 border-t border-slate-light dark:border-slate-700 flex gap-3 justify-end shrink-0">
+          <button type="button" onClick={onClose}
+            className="px-4 py-2 text-sm text-slate-mid hover:text-slate-dark dark:hover:text-slate-100 transition">
+            Cancel
+          </button>
+          <button
+            onClick={() => onSelect({ id: browseFolderId, name: currentCrumb.name })}
+            disabled={isSameLocation}
+            className="px-4 py-2 text-sm bg-brand text-white rounded-xl hover:bg-brand-light transition
+                       disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Move here
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 function FilesPageInner() {
@@ -699,6 +811,7 @@ function FilesPageInner() {
   // modals
   const [shareTarget, setShareTarget] = useState<{ type: 'file' | 'folder'; id: string; name: string } | null>(null);
   const [folderShareTarget, setFolderShareTarget] = useState<Folder | null>(null);
+  const [showMoveModal, setShowMoveModal] = useState(false);
 
   // toast
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
@@ -759,6 +872,20 @@ function FilesPageInner() {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
+    }
+  }
+
+  async function moveSelected(dest: { id: string | null; name: string }) {
+    setShowMoveModal(false);
+    const fileIds = Array.from(selectedIds).filter(id => files.some(f => f.id === id));
+    if (!fileIds.length) return;
+    try {
+      await Promise.all(fileIds.map(id => api.patch(`/files/${id}`, { folder_id: dest.id })));
+      clearSelection();
+      load(folderId);
+      showToast(`Moved ${fileIds.length} file${fileIds.length > 1 ? 's' : ''} to "${dest.name}"`);
+    } catch {
+      showToast('Failed to move files.', 'error');
     }
   }
 
@@ -1254,10 +1381,23 @@ function FilesPageInner() {
     if (draggingFile.folder_id === folder.id) return;
     const moved = draggingFile;
     setDraggingFile(null);
+
+    // If the dragged file is part of the current selection, move all selected files.
+    // Otherwise treat it as a single-file move (matches standard drive UX).
+    const isBulk = selectedIds.has(moved.id) && selectedIds.size > 1;
+    const fileIdsToMove = isBulk
+      ? Array.from(selectedIds).filter(id => files.some(f => f.id === id))
+      : [moved.id];
+
     try {
-      await api.patch(`/files/${moved.id}`, { folder_id: folder.id });
+      await Promise.all(fileIdsToMove.map(id => api.patch(`/files/${id}`, { folder_id: folder.id })));
+      if (isBulk) clearSelection();
       load(folderId);
-      showToast(`Moved "${moved.name}" to "${folder.name}"`);
+      showToast(
+        isBulk
+          ? `Moved ${fileIdsToMove.length} file${fileIdsToMove.length > 1 ? 's' : ''} to "${folder.name}"`
+          : `Moved "${moved.name}" to "${folder.name}"`
+      );
     } catch {
       showToast('Failed to move file.', 'error');
     }
@@ -2215,6 +2355,14 @@ function FilesPageInner() {
         />
       )}
 
+      {showMoveModal && (
+        <FolderPickerModal
+          currentFolderId={folderId}
+          onClose={() => setShowMoveModal(false)}
+          onSelect={moveSelected}
+        />
+      )}
+
       {previewFile && (
         <PreviewModal
           file={previewFile}
@@ -2328,6 +2476,17 @@ function FilesPageInner() {
               <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
             </svg>
             Download
+          </button>
+          <button
+            onClick={() => setShowMoveModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 transition text-sm"
+            title="Move selected files to a folder"
+          >
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+              <line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/>
+            </svg>
+            Move to…
           </button>
           <button
             onClick={deleteSelected}
