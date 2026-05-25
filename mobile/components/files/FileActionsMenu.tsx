@@ -19,6 +19,9 @@ import {
   Info,
   ExternalLink,
   LogOut,
+  Star,
+  Eye,
+  CheckSquare,
 } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FileItem } from '@/types';
@@ -39,6 +42,14 @@ interface FileActionsMenuProps {
   onDetails: () => void;
   /** Pour les dossiers partagés *avec* l'utilisateur — quitter sans supprimer. */
   onLeaveShare?: () => void;
+  /** Ouvrir l'aperçu du fichier. */
+  onPreview?: () => void;
+  /** Basculer l'état favori. */
+  onFavorite?: () => void;
+  /** true quand l'élément est déjà dans les favoris. */
+  isFavorited?: boolean;
+  /** Démarrer la sélection multiple. */
+  onSelect?: () => void;
 }
 
 export function FileActionsMenu({
@@ -54,6 +65,10 @@ export function FileActionsMenu({
   onMove,
   onDetails,
   onLeaveShare,
+  onPreview,
+  onFavorite,
+  isFavorited,
+  onSelect,
 }: FileActionsMenuProps) {
   const { colors } = useTheme();
 
@@ -75,6 +90,23 @@ export function FileActionsMenu({
     onPress: () => void;
     color: string;
   }[] = [];
+
+  if (onSelect) {
+    actions.push({ icon: CheckSquare, label: 'Sélectionner', onPress: onSelect, color: colors.text });
+  }
+
+  if (onPreview && file.type === 'file') {
+    actions.push({ icon: Eye, label: 'Aperçu', onPress: onPreview, color: colors.text });
+  }
+
+  if (onFavorite) {
+    actions.push({
+      icon: Star,
+      label: isFavorited ? 'Retirer des favoris' : 'Ajouter aux favoris',
+      onPress: onFavorite,
+      color: isFavorited ? colors.warning : colors.text,
+    });
+  }
 
   if (canWrite) {
     actions.push({ icon: Edit3, label: 'Renommer', onPress: onRename, color: colors.text });

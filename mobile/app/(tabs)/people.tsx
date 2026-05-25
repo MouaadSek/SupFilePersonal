@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, X, Users, Share2, FolderOpen } from 'lucide-react-native';
+import { Search, X, Users, Share2 } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useFiles } from '@/contexts/FilesContext';
 import { apiSearchUsers, ApiUserSearchResult } from '@/services/api/users';
@@ -58,28 +58,27 @@ export default function PeopleScreen() {
     setShowFolderPicker(true);
   };
 
-  const handleFolderSelected = (folderId: string | null) => {
+  const handleFolderSelected = async (folderId: string | null): Promise<void> => {
     setShowFolderPicker(false);
     if (!folderId || !shareFolderUser) return;
     const folder = files.find((f) => f.id === folderId && f.type === 'folder');
     if (!folder) return;
+    const userRef = shareFolderUser;
     Alert.alert(
       'Partager le dossier',
-      `Partager « ${folder.name} » avec ${shareFolderUser.display_name} (${shareFolderUser.email}) ?`,
+      `Partager « ${folder.name} » avec ${userRef.display_name} (${userRef.email}) ?`,
       [
         { text: 'Annuler', style: 'cancel' },
         {
           text: 'Partager',
           onPress: () => {
-            inviteUserToFolder(folderId, shareFolderUser.email);
+            inviteUserToFolder(folderId, userRef.email);
             setShareFolderUser(null);
           },
         },
       ],
     );
   };
-
-  const folders = files.filter((f) => f.type === 'folder' && !f.deletedAt);
 
   const renderUser = ({ item }: { item: ApiUserSearchResult }) => {
     const uri = avatarUrl(item.avatar_url);
@@ -201,7 +200,7 @@ export default function PeopleScreen() {
           setShowFolderPicker(false);
           setShareFolderUser(null);
         }}
-        files={folders}
+        files={files}
         excludeFolderIds={new Set()}
         onSelectDestination={handleFolderSelected}
       />
