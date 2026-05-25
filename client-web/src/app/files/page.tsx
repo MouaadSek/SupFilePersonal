@@ -415,14 +415,32 @@ function PreviewModal({
   blobUrl,
   loading,
   onClose,
+  onPrev,
+  onNext,
+  hasPrev,
+  hasNext,
 }: {
   file: FileItem;
   blobUrl: string | null;
   loading: boolean;
   onClose: () => void;
+  onPrev?: () => void;
+  onNext?: () => void;
+  hasPrev: boolean;
+  hasNext: boolean;
 }) {
   const mime = file.mime_type;
   const downloadUrl = `${getApiBase()}/files/${file.id}/download?token=${getToken()}`;
+
+  // keyboard navigation
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'ArrowLeft')  { e.preventDefault(); onPrev?.(); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); onNext?.(); }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onPrev, onNext]);
 
   function renderBody() {
     if (loading) {
@@ -521,8 +539,34 @@ function PreviewModal({
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-auto p-6 flex items-center justify-center min-h-0">
+        <div className="flex-1 overflow-auto p-6 flex items-center justify-center min-h-0 relative">
+          {/* Prev arrow */}
+          {hasPrev && (
+            <button
+              onClick={onPrev}
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white/90 dark:bg-slate-700/90 shadow-md
+                         flex items-center justify-center text-slate-dark dark:text-slate-100 hover:bg-brand hover:text-white transition"
+              title="Previous file (←)"
+            >
+              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+            </button>
+          )}
           {renderBody()}
+          {/* Next arrow */}
+          {hasNext && (
+            <button
+              onClick={onNext}
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white/90 dark:bg-slate-700/90 shadow-md
+                         flex items-center justify-center text-slate-dark dark:text-slate-100 hover:bg-brand hover:text-white transition"
+              title="Next file (→)"
+            >
+              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -559,6 +603,7 @@ function FilesPageInner() {
   const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
   const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
   // modals
   const [shareTarget, setShareTarget] = useState<{ type: 'file' | 'folder'; id: string; name: string } | null>(null);
@@ -948,7 +993,9 @@ function FilesPageInner() {
 
   // ── Preview ──────────────────────────────────────────────────────────────
 
-  async function openPreview(file: FileItem) {
+  async function openPreview(file: FileItem, idx?: number) {
+    const resolvedIdx = idx !== undefined ? idx : files.findIndex(f => f.id === file.id);
+    setPreviewIndex(resolvedIdx >= 0 ? resolvedIdx : null);
     setPreviewFile(file);
     setPreviewLoading(true);
     setPreviewBlobUrl(null);
@@ -980,6 +1027,14 @@ function FilesPageInner() {
     if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
     setPreviewFile(null);
     setPreviewBlobUrl(null);
+    setPreviewIndex(null);
+  }
+
+  function navigatePreview(delta: number) {
+    if (previewIndex === null) return;
+    const newIdx = previewIndex + delta;
+    if (newIdx < 0 || newIdx >= files.length) return;
+    openPreview(files[newIdx], newIdx);
   }
 
   // ── Download ZIP ─────────────────────────────────────────────────────────
@@ -1725,6 +1780,10 @@ function FilesPageInner() {
           blobUrl={previewBlobUrl}
           loading={previewLoading}
           onClose={closePreview}
+          hasPrev={previewIndex !== null && previewIndex > 0}
+          hasNext={previewIndex !== null && previewIndex < files.length - 1}
+          onPrev={() => navigatePreview(-1)}
+          onNext={() => navigatePreview(1)}
         />
       )}
 
