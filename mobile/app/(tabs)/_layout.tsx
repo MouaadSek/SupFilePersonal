@@ -1,7 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, Platform, View } from 'react-native';
 import { Tabs, Redirect } from 'expo-router';
-import { Home, FolderOpen, Share2, User } from 'lucide-react-native';
+import { Home, FolderOpen, Share2, User, Users } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Spacing, BorderRadius } from '@/constants/theme';
@@ -68,6 +68,13 @@ export default function TabsLayout() {
         options={{
           title: 'Partages',
           tabBarIcon: ({ color, size }) => <Share2 size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="people"
+        options={{
+          title: 'Personnes',
+          tabBarIcon: ({ color, size }) => <Users size={size} color={color} />,
         }}
       />
       <Tabs.Screen

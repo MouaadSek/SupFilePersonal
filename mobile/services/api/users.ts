@@ -1,6 +1,17 @@
 import { apiRequest } from './client';
 import type { ApiUser } from './types';
 
+export type ApiUserSearchResult = {
+  id: string;
+  display_name: string;
+  email: string;
+  avatar_url?: string | null;
+};
+
+export async function apiSearchUsers(q: string): Promise<ApiUserSearchResult[]> {
+  return apiRequest<ApiUserSearchResult[]>(`/users/search?q=${encodeURIComponent(q)}`);
+}
+
 export async function apiUpdateProfile(patch: {
   email?: string;
   display_name?: string;
