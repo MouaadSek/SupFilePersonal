@@ -734,7 +734,7 @@ function FilesPageInner() {
     });
   }
   function selectAll() {
-    setSelectedIds(new Set([...files.map(f => f.id), ...folders.map(f => f.id)]));
+    setSelectedIds(new Set(files.map(f => f.id)));
   }
   function clearSelection() { setSelectedIds(new Set()); }
 
@@ -1675,15 +1675,6 @@ function FilesPageInner() {
                           {isOver && (
                             <div className="absolute inset-0 rounded-2xl border-2 border-brand border-dashed pointer-events-none" />
                           )}
-                          {/* Selection checkbox */}
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={(e) => { e.stopPropagation(); toggleSelect(f.id); }}
-                            onClick={(e) => e.stopPropagation()}
-                            className="absolute top-2 left-2 w-4 h-4 accent-brand cursor-pointer opacity-0 group-hover:opacity-100 z-10"
-                            style={isSelected ? { opacity: 1 } : {}}
-                          />
 
                           <div className="w-10 h-10 flex items-center justify-center">
                             <svg width={40} height={40} viewBox="0 0 24 24"
