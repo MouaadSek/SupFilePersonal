@@ -1511,26 +1511,6 @@ function FilesPageInner() {
                             <p className="text-xs text-slate-mid dark:text-slate-400">{formatBytes(f.size)} · {timeAgo(f.updated_at)}</p>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
-                            {/* Hover-only action buttons — hidden on mobile so they don't consume layout space */}
-                            <div className="hidden sm:flex items-center gap-2 opacity-0 group-hover:opacity-100 transition">
-                              <button onClick={() => openPreview(f)}
-                                className="text-xs px-3 py-1.5 rounded-lg border border-slate-light text-slate-mid hover:border-brand hover:text-brand transition">
-                                Preview
-                              </button>
-                              <button onClick={() => setShareTarget({ type: 'file', id: f.id, name: f.name })}
-                                className="text-xs px-3 py-1.5 rounded-lg border border-slate-light text-slate-mid hover:border-brand hover:text-brand transition">
-                                Share
-                              </button>
-                              <a href={`${getApiBase()}/files/${f.id}/download?token=${getToken()}`}
-                                className="text-xs px-3 py-1.5 rounded-lg border border-slate-light text-slate-mid hover:border-brand hover:text-brand transition">
-                                Download
-                              </a>
-                              <button onClick={() => trashFile(f.id)}
-                                className="text-slate-mid hover:text-red-500 transition p-1 cursor-pointer"
-                                aria-label="Move to trash">
-                                <IconTrash />
-                              </button>
-                            </div>
                             {/* Three-dot menu — always visible */}
                             <div className="relative" data-menu>
                               <button
