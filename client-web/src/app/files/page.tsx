@@ -1510,44 +1510,41 @@ function FilesPageInner() {
                             )}
                             <p className="text-xs text-slate-mid dark:text-slate-400">{formatBytes(f.size)} · {timeAgo(f.updated_at)}</p>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {/* Three-dot menu — always visible */}
-                            <div className="relative" data-menu>
-                              <button
-                                onClick={() => setActiveMenu(activeMenu?.id === f.id && activeMenu.type === 'file' ? null : { type: 'file', id: f.id })}
-                                className="p-1.5 rounded-lg text-slate-mid hover:text-slate-dark dark:hover:text-slate-100 hover:bg-slate-light/40 dark:hover:bg-slate-700 transition cursor-pointer"
-                                title="More actions"
-                              >
-                                <svg width={15} height={15} viewBox="0 0 24 24" fill="currentColor">
-                                  <circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" />
-                                </svg>
-                              </button>
-                              {activeMenu?.type === 'file' && activeMenu?.id === f.id && (
-                                <div data-menu className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-light dark:border-slate-700 min-w-36 py-1.5">
-                                  <button onClick={() => { openPreview(f); setActiveMenu(null); }}
-                                    className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
-                                    Preview
-                                  </button>
-                                  <button onClick={() => { setShareTarget({ type: 'file', id: f.id, name: f.name }); setActiveMenu(null); }}
-                                    className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
-                                    Share
-                                  </button>
-                                  <a href={`${getApiBase()}/files/${f.id}/download?token=${getToken()}`}
-                                    onClick={() => setActiveMenu(null)}
-                                    className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
-                                    Download
-                                  </a>
-                                  <button onClick={() => startRename('file', f.id, f.name)}
-                                    className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
-                                    Rename
-                                  </button>
-                                  <button onClick={() => { trashFile(f.id); setActiveMenu(null); }}
-                                    className="flex w-full items-center px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition text-left cursor-pointer">
-                                    Move to trash
-                                  </button>
-                                </div>
-                              )}
-                            </div>
+                          <div className="relative shrink-0" data-menu>
+                            <button
+                              onClick={() => setActiveMenu(activeMenu?.id === f.id && activeMenu.type === 'file' ? null : { type: 'file', id: f.id })}
+                              className="p-1.5 rounded-lg text-slate-mid hover:text-slate-dark dark:hover:text-slate-100 hover:bg-slate-light/40 dark:hover:bg-slate-700 transition cursor-pointer"
+                              title="More actions"
+                            >
+                              <svg width={15} height={15} viewBox="0 0 24 24" fill="currentColor">
+                                <circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" />
+                              </svg>
+                            </button>
+                            {activeMenu?.type === 'file' && activeMenu?.id === f.id && (
+                              <div data-menu className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-light dark:border-slate-700 min-w-36 py-1.5">
+                                <button onClick={() => { openPreview(f); setActiveMenu(null); }}
+                                  className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
+                                  Preview
+                                </button>
+                                <button onClick={() => { setShareTarget({ type: 'file', id: f.id, name: f.name }); setActiveMenu(null); }}
+                                  className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
+                                  Share
+                                </button>
+                                <a href={`${getApiBase()}/files/${f.id}/download?token=${getToken()}`}
+                                  onClick={() => setActiveMenu(null)}
+                                  className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
+                                  Download
+                                </a>
+                                <button onClick={() => startRename('file', f.id, f.name)}
+                                  className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
+                                  Rename
+                                </button>
+                                <button onClick={() => { trashFile(f.id); setActiveMenu(null); }}
+                                  className="flex w-full items-center px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition text-left cursor-pointer">
+                                  Move to trash
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
