@@ -19,6 +19,7 @@ interface Folder {
   parent_id: string | null;
   updated_at: string;
   item_count?: number;
+  starred?: boolean;
 }
 
 interface FileItem {
@@ -28,6 +29,7 @@ interface FileItem {
   size: number;
   updated_at: string;
   folder_id: string | null;
+  starred?: boolean;
 }
 
 interface Crumb { id: string | null; name: string; }
@@ -84,6 +86,22 @@ function getToken() {
 
 function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`animate-pulse rounded-xl bg-slate-light/60 dark:bg-slate-700/60 ${className}`} />;
+}
+
+function StarButton({ starred, onClick }: { starred?: boolean; onClick: (e: React.MouseEvent) => void }) {
+  return (
+    <button
+      onClick={onClick}
+      title={starred ? 'Remove from favorites' : 'Add to favorites'}
+      className={`p-1 rounded transition cursor-pointer ${starred ? 'text-amber-400' : 'text-slate-mid hover:text-amber-400 opacity-0 group-hover:opacity-100'}`}
+    >
+      <svg width={13} height={13} viewBox="0 0 24 24"
+        fill={starred ? 'currentColor' : 'none'}
+        stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+      </svg>
+    </button>
+  );
 }
 
 function Toast({ message, type = 'success' }: { message: string; type?: 'success' | 'error' }) {
@@ -751,6 +769,28 @@ function FilesPageInner() {
     const x = Math.min(e.clientX, window.innerWidth  - menuW - 8);
     const y = Math.min(e.clientY, window.innerHeight - menuH - 8);
     setContextMenu({ x, y, type, item });
+  }
+
+  // ── Star / favorites ──────────────────────────────────────────────────────
+
+  async function toggleFileStar(e: React.MouseEvent, fileId: string) {
+    e.stopPropagation();
+    try {
+      const res = await api.post(`/favorites/files/${fileId}`);
+      setFiles(prev => prev.map(f => f.id === fileId ? { ...f, starred: res.data.starred } : f));
+    } catch {
+      showToast('Failed to update favorites.', 'error');
+    }
+  }
+
+  async function toggleFolderStar(e: React.MouseEvent, folderId: string) {
+    e.stopPropagation();
+    try {
+      const res = await api.post(`/favorites/folders/${folderId}`);
+      setFolders(prev => prev.map(f => f.id === folderId ? { ...f, starred: res.data.starred } : f));
+    } catch {
+      showToast('Failed to update favorites.', 'error');
+    }
   }
 
   // ── Block browser's default file-open on drag-drop anywhere on the page ──
@@ -1564,6 +1604,7 @@ function FilesPageInner() {
                           )}
 
                           <div className="absolute top-2 right-2 flex items-center gap-0.5">
+                            <StarButton starred={f.starred} onClick={(e) => toggleFolderStar(e, f.id)} />
                             <button
                               onClick={(e) => { e.stopPropagation(); downloadZip(f); }}
                               title="Download as ZIP"
@@ -1735,6 +1776,7 @@ function FilesPageInner() {
                               )}
                               <p className="text-xs text-slate-mid dark:text-slate-400">{formatBytes(f.size)} · {timeAgo(f.updated_at)}</p>
                             </div>
+                            <StarButton starred={f.starred} onClick={(e) => toggleFileStar(e, f.id)} />
                             <div className="relative shrink-0" data-menu>
                               <button
                                 onClick={() => setActiveMenu(activeMenu?.id === f.id && activeMenu.type === 'file' ? null : { type: 'file', id: f.id })}
@@ -1834,6 +1876,11 @@ function FilesPageInner() {
                               <p className="text-xs font-medium text-slate-dark dark:text-slate-100 text-center truncate w-full">{f.name}</p>
                             )}
                             <p className="text-[10px] text-slate-mid dark:text-slate-400 text-center">{formatBytes(f.size)}</p>
+
+                            {/* Star */}
+                            <div className="absolute bottom-2 left-2">
+                              <StarButton starred={f.starred} onClick={(e) => toggleFileStar(e, f.id)} />
+                            </div>
 
                             {/* Three-dots menu */}
                             <div className="absolute top-2 right-2" data-menu>

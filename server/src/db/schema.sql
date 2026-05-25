@@ -59,6 +59,10 @@ CREATE TABLE IF NOT EXISTS files (
 -- Encryption flag — added after initial release; idempotent on re-run
 ALTER TABLE files ADD COLUMN IF NOT EXISTS encrypted BOOLEAN NOT NULL DEFAULT FALSE;
 
+-- Starred / favorites flag — idempotent on re-run
+ALTER TABLE files   ADD COLUMN IF NOT EXISTS starred BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE folders ADD COLUMN IF NOT EXISTS starred BOOLEAN NOT NULL DEFAULT FALSE;
+
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires TIMESTAMPTZ;
 

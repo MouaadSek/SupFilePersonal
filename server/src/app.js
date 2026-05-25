@@ -52,6 +52,7 @@ app.use('/dashboard', dashboardRoutes);
 app.use('/trash',     require('./routes/trash'));
 app.use('/search',    require('./routes/search'));
 app.use('/users',     require('./routes/users'));
+app.use('/favorites', require('./routes/favorites'));
 
 app.use((err, _req, res, _next) => {
   console.error(err);
