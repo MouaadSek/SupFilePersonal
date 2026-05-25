@@ -651,6 +651,45 @@ function FilesPageInner() {
   const [renameTarget, setRenameTarget] = useState<{ type: 'file' | 'folder'; id: string } | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
+  // bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+  function selectAll() {
+    setSelectedIds(new Set([...files.map(f => f.id), ...folders.map(f => f.id)]));
+  }
+  function clearSelection() { setSelectedIds(new Set()); }
+
+  async function deleteSelected() {
+    const ids = Array.from(selectedIds);
+    const fileIds = ids.filter(id => files.some(f => f.id === id));
+    const folderIds = ids.filter(id => folders.some(f => f.id === id));
+    for (const id of fileIds) await api.delete(`/files/${id}`).catch(() => {});
+    for (const id of folderIds) await api.delete(`/folders/${id}`).catch(() => {});
+    clearSelection();
+    load(folderId);
+    showToast(`${ids.length} item${ids.length > 1 ? 's' : ''} moved to trash`);
+  }
+
+  function downloadSelected() {
+    const fileIds = Array.from(selectedIds).filter(id => files.some(f => f.id === id));
+    for (const id of fileIds) {
+      const file = files.find(f => f.id === id)!;
+      const a = document.createElement('a');
+      a.href = `${getApiBase()}/files/${id}/download?token=${getToken()}`;
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  }
+
   // view mode — persisted to localStorage
   const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => {
     if (typeof window !== 'undefined') {
@@ -1421,12 +1460,15 @@ function FilesPageInner() {
               {/* Folders */}
               {folders.length > 0 && (
                 <section>
-                  <h2 className="text-xs font-semibold text-slate-mid uppercase tracking-wider mb-3">
-                    Folders ({folders.length})
-                  </h2>
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-xs font-semibold text-slate-mid uppercase tracking-wider">
+                      Folders ({folders.length})
+                    </h2>
+                  </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                     {folders.map((f) => {
                       const isOver = dragOverFolderId === f.id;
+                      const isSelected = selectedIds.has(f.id);
                       return (
                         <div
                           key={f.id}
@@ -1438,12 +1480,23 @@ function FilesPageInner() {
                                      items-center gap-2 cursor-pointer select-none transition-all
                                      ${isOver
                                        ? 'border-brand bg-brand/5 shadow-md scale-[1.02]'
-                                       : 'border-slate-light dark:border-slate-700 hover:border-brand hover:shadow-md hover:scale-[1.01]'
+                                       : isSelected
+                                         ? 'border-brand bg-brand/5 shadow-md'
+                                         : 'border-slate-light dark:border-slate-700 hover:border-brand hover:shadow-md hover:scale-[1.01]'
                                      }`}
                         >
                           {isOver && (
                             <div className="absolute inset-0 rounded-2xl border-2 border-brand border-dashed pointer-events-none" />
                           )}
+                          {/* Selection checkbox */}
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => { e.stopPropagation(); toggleSelect(f.id); }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="absolute top-2 left-2 w-4 h-4 accent-brand cursor-pointer opacity-0 group-hover:opacity-100 z-10"
+                            style={isSelected ? { opacity: 1 } : {}}
+                          />
 
                           <div className="w-10 h-10 flex items-center justify-center">
                             <svg width={40} height={40} viewBox="0 0 24 24"
@@ -1570,9 +1623,20 @@ function FilesPageInner() {
               {/* Files */}
               {files.length > 0 && (
                 <section>
-                  <h2 className="text-xs font-semibold text-slate-mid uppercase tracking-wider mb-3">
-                    Files ({files.length})
-                  </h2>
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-xs font-semibold text-slate-mid uppercase tracking-wider">
+                      Files ({files.length})
+                    </h2>
+                    <label className="flex items-center gap-1.5 text-xs text-slate-mid cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={files.length > 0 && files.every(f => selectedIds.has(f.id))}
+                        onChange={(e) => e.target.checked ? selectAll() : clearSelection()}
+                        className="w-3.5 h-3.5 accent-brand cursor-pointer"
+                      />
+                      Select all
+                    </label>
+                  </div>
 
                   {viewMode === 'list' ? (
                     /* ── List view ── */
@@ -1580,6 +1644,7 @@ function FilesPageInner() {
                       {files.map((f, i) => {
                         const { bg, color } = mimeColor(f.mime_type);
                         const isDragging = draggingFile?.id === f.id;
+                        const isSelected = selectedIds.has(f.id);
                         return (
                           <div
                             key={f.id}
@@ -1590,10 +1655,20 @@ function FilesPageInner() {
                                         cursor-grab active:cursor-grabbing
                                         ${i === 0 ? 'rounded-t-2xl' : ''}
                                         ${i === files.length - 1 ? 'rounded-b-2xl' : 'border-b border-slate-light/60 dark:border-slate-700/60'}
-                                        ${isDragging ? 'opacity-40 bg-brand-bg/30 dark:bg-slate-700/30' : ''}`}
+                                        ${isDragging ? 'opacity-40 bg-brand-bg/30 dark:bg-slate-700/30' : ''}
+                                        ${isSelected ? 'bg-brand/5 dark:bg-brand/10' : ''}`}
                           >
                             <div className="absolute left-0 top-0 bottom-0 w-[3px] opacity-0 group-hover:opacity-100 transition-opacity"
                               style={{ background: color }} />
+                            {/* Checkbox */}
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleSelect(f.id)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-4 h-4 accent-brand cursor-pointer shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              style={isSelected ? { opacity: 1 } : {}}
+                            />
                             <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
                               style={{ background: bg, color }}>
                               {f.mime_type.startsWith('image/') ? (
@@ -1673,12 +1748,23 @@ function FilesPageInner() {
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                       {files.map((f) => {
                         const { bg, color } = mimeColor(f.mime_type);
+                        const isSelected = selectedIds.has(f.id);
                         return (
                           <div
                             key={f.id}
                             onDoubleClick={() => isPreviewable(f.mime_type) && openPreview(f)}
-                            className="group relative bg-white dark:bg-slate-800 border border-slate-light dark:border-slate-700 rounded-2xl p-4 flex flex-col items-center gap-2 cursor-pointer select-none transition-all hover:border-brand hover:shadow-md hover:scale-[1.01]"
+                            className={`group relative bg-white dark:bg-slate-800 border rounded-2xl p-4 flex flex-col items-center gap-2 cursor-pointer select-none transition-all hover:border-brand hover:shadow-md hover:scale-[1.01]
+                                       ${isSelected ? 'border-brand bg-brand/5' : 'border-slate-light dark:border-slate-700'}`}
                           >
+                            {/* Grid selection checkbox */}
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => { e.stopPropagation(); toggleSelect(f.id); }}
+                              onClick={(e) => e.stopPropagation()}
+                              className="absolute top-2 left-2 w-4 h-4 accent-brand cursor-pointer opacity-0 group-hover:opacity-100 z-10 transition-opacity"
+                              style={isSelected ? { opacity: 1 } : {}}
+                            />
                             {/* Large thumbnail / icon */}
                             <div className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0 overflow-hidden [&>svg]:w-7 [&>svg]:h-7"
                               style={{ background: bg, color }}>
@@ -1814,6 +1900,50 @@ function FilesPageInner() {
           onPrev={() => navigatePreview(-1)}
           onNext={() => navigatePreview(1)}
         />
+      )}
+
+      {/* ── Bulk action floating toolbar ── */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2
+                        bg-slate-dark dark:bg-slate-700 text-white rounded-2xl shadow-2xl px-4 py-3
+                        border border-slate-700 dark:border-slate-600 animate-in fade-in slide-in-from-bottom-4">
+          <span className="text-sm font-medium shrink-0 mr-1">
+            {selectedIds.size} selected
+          </span>
+          <div className="w-px h-5 bg-white/20 shrink-0" />
+          <button
+            onClick={downloadSelected}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 transition text-sm"
+            title="Download selected files"
+          >
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Download
+          </button>
+          <button
+            onClick={deleteSelected}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/80 hover:bg-red-500 transition text-sm"
+            title="Move selected to trash"
+          >
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+              <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+            </svg>
+            Delete
+          </button>
+          <button
+            onClick={clearSelection}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 transition text-sm"
+            title="Clear selection"
+          >
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+            Clear
+          </button>
+        </div>
       )}
 
       {toast && <Toast message={toast.msg} type={toast.type} />}
