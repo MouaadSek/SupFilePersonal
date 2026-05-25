@@ -64,6 +64,48 @@ export function hasRemotePreviewSource(file: FileItem): boolean {
   return !!(file.localUri || file.previewUrl || file.downloadUrl || file.thumbnail);
 }
 
+export function isSpreadsheetFile(file: FileItem): boolean {
+  if (file.type !== 'file') return false;
+  const mime = effectiveMimeTypeForFile(file);
+  return (
+    mime.includes('spreadsheet') ||
+    mime.includes('excel') ||
+    /\.xlsx?$/i.test(file.name) ||
+    file.name.toLowerCase().endsWith('.csv')
+  );
+}
+
+export function isWordFile(file: FileItem): boolean {
+  if (file.type !== 'file') return false;
+  const mime = effectiveMimeTypeForFile(file);
+  return mime.includes('wordprocessing') || mime.includes('msword') || /\.docx?$/i.test(file.name);
+}
+
+export function isTextFile(file: FileItem): boolean {
+  if (file.type !== 'file') return false;
+  const mime = effectiveMimeTypeForFile(file);
+  return (
+    mime === 'text/plain' ||
+    mime === 'text/markdown' ||
+    file.name.toLowerCase().endsWith('.txt') ||
+    file.name.toLowerCase().endsWith('.md')
+  );
+}
+
+/** Returns true when the file can be rendered in the built-in preview screen. */
+export function isPreviewableFile(file: FileItem): boolean {
+  if (file.type !== 'file') return false;
+  return (
+    isImageFile(file) ||
+    isPdfFile(file) ||
+    isVideoFile(file) ||
+    isAudioFile(file) ||
+    isSpreadsheetFile(file) ||
+    isWordFile(file) ||
+    isTextFile(file)
+  );
+}
+
 /** MIME utilisé pour partage / intent Android : extension prioritaire sur le type stocké. */
 export function effectiveMimeTypeForFile(file: FileItem): string {
   const fromName = mimeTypeFromFilename(file.name);

@@ -38,9 +38,11 @@ import {
   Folder,
   Check,
   Clock,
+  Star,
 } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useFiles } from '@/contexts/FilesContext';
+import { useFavorites } from '@/contexts/FavoritesContext';
 import {
   FileItemComponent,
   Breadcrumb,
@@ -72,11 +74,13 @@ import {
   shareSingleFileToDevice,
 } from '@/utils/folderArchiveDownload';
 import { ShareCollaborationModal } from '@/components/sharing';
+import { isPreviewableFile } from '@/utils/mimeFromFilename';
 
 type SortOption = 'name' | 'date' | 'size' | 'type';
 
 export default function FilesScreen() {
   const { colors } = useTheme();
+  const { isFavorited, toggleFavorite } = useFavorites();
   const {
     files,
     currentFolder,
@@ -347,16 +351,23 @@ export default function FilesScreen() {
     } else if (item.type === 'folder') {
       navigateToFolder(item.id);
       if (isSearchMode) clearSearchFilters();
-    } else {
+    } else if (isPreviewableFile(item)) {
+      const previewableIds = displayFiles
+        .filter((f) => f.type === 'file' && isPreviewableFile(f))
+        .map((f) => f.id)
+        .join(',');
       router.push({
         pathname: '/preview/[id]',
-        params: { id: item.id },
+        params: { id: item.id, fileIds: previewableIds },
       });
+    } else {
+      void shareSingleFileToDevice(item);
     }
   };
 
   const handleFileLongPress = (item: FileItem) => {
-    toggleSelection(item.id);
+    setSelectedFile(item);
+    setShowActionsMenu(true);
   };
 
   const handleMenuPress = (item: FileItem) => {
@@ -551,6 +562,14 @@ export default function FilesScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Mes fichiers</Text>
+        <TouchableOpacity
+          onPress={() => router.push('/favorites')}
+          style={styles.trashLink}
+          accessibilityRole="button"
+          accessibilityLabel="Ouvrir les favoris"
+        >
+          <Star size={22} color={colors.text} />
+        </TouchableOpacity>
         <TouchableOpacity
           onPress={() => router.push('/trash')}
           style={styles.trashLink}
@@ -775,6 +794,26 @@ export default function FilesScreen() {
           setSelectedFile(null);
         }}
         file={selectedFile}
+        onSelect={() => {
+          if (selectedFile) toggleSelection(selectedFile.id);
+        }}
+        onPreview={() => {
+          if (!selectedFile || selectedFile.type !== 'file') return;
+          if (isPreviewableFile(selectedFile)) {
+            const previewableIds = displayFiles
+              .filter((f) => f.type === 'file' && isPreviewableFile(f))
+              .map((f) => f.id)
+              .join(',');
+            router.push({
+              pathname: '/preview/[id]',
+              params: { id: selectedFile.id, fileIds: previewableIds },
+            });
+          }
+        }}
+        onFavorite={() => {
+          if (selectedFile) void toggleFavorite(selectedFile);
+        }}
+        isFavorited={selectedFile ? isFavorited(selectedFile.id) : false}
         onRename={() => {
           if (selectedFile) setRenameTarget(selectedFile);
           setShowRenameModal(true);
