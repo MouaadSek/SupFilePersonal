@@ -19,6 +19,17 @@ function IconStar() {
   );
 }
 
+function IconPeople() {
+  return (
+    <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+      <circle cx="9" cy="7" r="4"/>
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+    </svg>
+  );
+}
+
 interface Suggestion {
   id: string;
   name: string;
@@ -38,6 +49,7 @@ const NAV = [
   { href: '/files',      label: 'My Files',  Icon: IconFolder },
   { href: '/favorites',  label: 'Favorites', Icon: IconStar },
   { href: '/shared',     label: 'Shared',    Icon: IconShare },
+  { href: '/people',     label: 'People',    Icon: IconPeople },
   { href: '/trash',      label: 'Trash',     Icon: IconTrash },
   { href: '/settings',   label: 'Settings',  Icon: IconSettings },
 ];
@@ -57,10 +69,26 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const [avatarImgError, setAvatarImgError] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const searchWrapRef = useRef<HTMLDivElement>(null);
   const quotaUsed  = Number(user?.quota_used  ?? 0);
   const quotaTotal = Number(user?.quota_total ?? 32212254720);
   const pct = Math.min(100, Math.round((quotaUsed / quotaTotal) * 100));
+
+  // Load collapsed state from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setSidebarCollapsed(localStorage.getItem('supfile_sidebar_collapsed') === '1');
+    }
+  }, []);
+
+  function toggleSidebar() {
+    const next = !sidebarCollapsed;
+    setSidebarCollapsed(next);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('supfile_sidebar_collapsed', next ? '1' : '0');
+    }
+  }
 
   useEffect(() => {
     const q = searchVal.trim();
@@ -142,65 +170,103 @@ export default function DashboardLayout({ children, user, onLogout }: Props) {
     <div className="flex min-h-screen bg-brand-bg dark:bg-slate-900">
 
       {/* ── Sidebar ── */}
-      <aside className="hidden md:flex flex-col w-64 shrink-0
-                        bg-white dark:bg-slate-800
-                        border-r border-slate-light dark:border-slate-700">
+      <aside
+        className={`hidden md:flex flex-col shrink-0 transition-all duration-200
+                    bg-white dark:bg-slate-800
+                    border-r border-slate-light dark:border-slate-700
+                    ${sidebarCollapsed ? 'w-16' : 'w-64'}`}
+      >
 
-        {/* Logo */}
-        <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-light dark:border-slate-700">
-          <Image src="/supfile.png" alt="SUPFile" width={32} height={32} className="rounded-lg" priority />
-          <span className="font-bold text-slate-dark dark:text-slate-100 text-lg tracking-tight">SUPFile</span>
+        {/* Logo + toggle */}
+        <div className={`flex items-center border-b border-slate-light dark:border-slate-700
+                         ${sidebarCollapsed ? 'flex-col py-3 px-2 gap-2' : 'gap-3 px-4 py-4'}`}>
+          {!sidebarCollapsed && (
+            <>
+              <Image src="/supfile.png" alt="SUPFile" width={32} height={32} className="rounded-lg" priority />
+              <span className="font-bold text-slate-dark dark:text-slate-100 text-lg tracking-tight flex-1 min-w-0 truncate">
+                SUPFile
+              </span>
+            </>
+          )}
+          {sidebarCollapsed && (
+            <Image src="/supfile.png" alt="SUPFile" width={28} height={28} className="rounded-lg" priority />
+          )}
+          <button
+            onClick={toggleSidebar}
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className="flex items-center justify-center w-6 h-6 rounded-md
+                       text-slate-mid hover:text-brand hover:bg-brand-bg dark:hover:bg-slate-700 transition shrink-0"
+          >
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              {sidebarCollapsed
+                ? <polyline points="9 18 15 12 9 6" />
+                : <polyline points="15 18 9 12 15 6" />
+              }
+            </svg>
+          </button>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-0.5">
+        <nav className={`flex-1 py-4 space-y-0.5 ${sidebarCollapsed ? 'px-2' : 'px-3'}`}>
           {NAV.map(({ href, label, Icon }) => {
             const active = pathname === href;
             return (
               <Link
                 key={href}
                 href={href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors border-l-[3px] ${
-                  active
-                    ? 'bg-brand/10 text-brand dark:bg-brand/20 dark:text-brand border-l-brand'
-                    : 'text-slate-mid dark:text-slate-400 hover:bg-brand-bg dark:hover:bg-slate-700 hover:text-slate-dark dark:hover:text-slate-100 border-l-transparent'
-                }`}
+                title={sidebarCollapsed ? label : undefined}
+                className={`flex items-center py-2.5 rounded-xl text-sm font-medium transition-colors
+                            ${sidebarCollapsed
+                              ? 'justify-center px-2'
+                              : `gap-3 px-3 border-l-[3px] ${active ? 'border-l-brand' : 'border-l-transparent'}`
+                            }
+                            ${active
+                              ? 'bg-brand/10 text-brand dark:bg-brand/20 dark:text-brand'
+                              : 'text-slate-mid dark:text-slate-400 hover:bg-brand-bg dark:hover:bg-slate-700 hover:text-slate-dark dark:hover:text-slate-100'
+                            }`}
               >
                 <span className={active ? 'text-brand' : 'text-slate-mid dark:text-slate-500'}>
                   <Icon />
                 </span>
-                {label}
+                {!sidebarCollapsed && label}
               </Link>
             );
           })}
         </nav>
 
-        {/* Quota bar */}
-        <div className="px-5 py-4 border-t border-slate-light dark:border-slate-700 space-y-2">
-          <div className="flex justify-between text-xs text-slate-mid dark:text-slate-400">
-            <span>Storage</span>
-            <span>{formatBytes(quotaUsed)} / {formatBytes(quotaTotal)}</span>
+        {/* Quota bar — hidden when collapsed */}
+        {!sidebarCollapsed && (
+          <div className="px-5 py-4 border-t border-slate-light dark:border-slate-700 space-y-2">
+            <div className="flex justify-between text-xs text-slate-mid dark:text-slate-400">
+              <span>Storage</span>
+              <span>{formatBytes(quotaUsed)} / {formatBytes(quotaTotal)}</span>
+            </div>
+            <div className="h-1.5 bg-brand-bg dark:bg-slate-700 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-brand rounded-full transition-all duration-500"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            <p className="text-xs text-slate-mid dark:text-slate-400">{pct}% used</p>
           </div>
-          <div className="h-1.5 bg-brand-bg dark:bg-slate-700 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-brand rounded-full transition-all duration-500"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-          <p className="text-xs text-slate-mid dark:text-slate-400">{pct}% used</p>
-        </div>
+        )}
 
-        {/* User info — sign-out is in the header avatar dropdown */}
-        <div className="px-4 py-4 border-t border-slate-light dark:border-slate-700 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-brand/20 flex items-center justify-center text-brand font-semibold text-sm">
+        {/* User info */}
+        <div className={`border-t border-slate-light dark:border-slate-700 flex items-center
+                         ${sidebarCollapsed ? 'justify-center px-2 py-4' : 'gap-3 px-4 py-4'}`}>
+          <div className="w-8 h-8 rounded-full bg-brand/20 flex items-center justify-center text-brand font-semibold text-sm shrink-0"
+               title={sidebarCollapsed ? (user?.display_name || 'User') : undefined}>
             {user?.display_name?.[0]?.toUpperCase() ?? '?'}
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-dark dark:text-slate-100 truncate">
-              {user?.display_name || 'User'}
-            </p>
-            <p className="text-xs text-slate-mid dark:text-slate-400 truncate">{user?.email}</p>
-          </div>
+          {!sidebarCollapsed && (
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-slate-dark dark:text-slate-100 truncate">
+                {user?.display_name || 'User'}
+              </p>
+              <p className="text-xs text-slate-mid dark:text-slate-400 truncate">{user?.email}</p>
+            </div>
+          )}
         </div>
       </aside>
 
