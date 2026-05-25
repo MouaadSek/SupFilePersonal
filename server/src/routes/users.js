@@ -76,6 +76,52 @@ router.delete('/me/avatar', auth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /users/search?q=query — search users by name or email (excludes self, max 20)
+router.get('/search', auth, async (req, res, next) => {
+  try {
+    const { q } = req.query;
+    if (!q || String(q).trim().length < 1) return res.json([]);
+    const term = `%${String(q).trim()}%`;
+    const result = await query(
+      `SELECT id, email, display_name, avatar_url
+       FROM users
+       WHERE id != $1
+         AND (LOWER(display_name) LIKE LOWER($2) OR LOWER(email) LIKE LOWER($2))
+       ORDER BY display_name
+       LIMIT 20`,
+      [req.user.id, term]
+    );
+    return res.json(result.rows);
+  } catch (err) { next(err); }
+});
+
+// GET /users/sharing — summary of who you've shared with and who shared with you
+router.get('/sharing', auth, async (req, res, next) => {
+  try {
+    const sharedByMe = await query(
+      `SELECT DISTINCT u.id, u.display_name, u.email, u.avatar_url,
+              f.id AS folder_id, f.name AS folder_name, fm.permission
+       FROM folder_members fm
+       JOIN folders f ON f.id = fm.folder_id
+       JOIN users u ON u.id = fm.user_id
+       WHERE f.owner_id = $1 AND u.id != $1 AND f.trashed = FALSE
+       ORDER BY u.display_name`,
+      [req.user.id]
+    );
+    const sharedWithMe = await query(
+      `SELECT DISTINCT u.id, u.display_name, u.email, u.avatar_url,
+              f.id AS folder_id, f.name AS folder_name, fm.permission
+       FROM folder_members fm
+       JOIN folders f ON f.id = fm.folder_id
+       JOIN users u ON u.id = f.owner_id
+       WHERE fm.user_id = $1 AND f.owner_id != $1 AND f.trashed = FALSE
+       ORDER BY u.display_name`,
+      [req.user.id]
+    );
+    return res.json({ shared_by_me: sharedByMe.rows, shared_with_me: sharedWithMe.rows });
+  } catch (err) { next(err); }
+});
+
 // GET /users/lookup?email=... — find a user by email (for folder sharing)
 router.get('/lookup', auth, async (req, res, next) => {
   try {
