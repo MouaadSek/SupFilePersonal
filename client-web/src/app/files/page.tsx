@@ -876,8 +876,7 @@ function FilesPageInner() {
 
   // ── Star / favorites ──────────────────────────────────────────────────────
 
-  async function toggleFileStar(e: React.MouseEvent, fileId: string) {
-    e.stopPropagation();
+  async function starFile(fileId: string) {
     try {
       const res = await api.post(`/favorites/files/${fileId}`);
       setFiles(prev => prev.map(f => f.id === fileId ? { ...f, starred: res.data.starred } : f));
@@ -886,14 +885,23 @@ function FilesPageInner() {
     }
   }
 
-  async function toggleFolderStar(e: React.MouseEvent, folderId: string) {
+  async function toggleFileStar(e: React.MouseEvent, fileId: string) {
     e.stopPropagation();
+    await starFile(fileId);
+  }
+
+  async function starFolder(id: string) {
     try {
-      const res = await api.post(`/favorites/folders/${folderId}`);
-      setFolders(prev => prev.map(f => f.id === folderId ? { ...f, starred: res.data.starred } : f));
+      const res = await api.post(`/favorites/folders/${id}`);
+      setFolders(prev => prev.map(f => f.id === id ? { ...f, starred: res.data.starred } : f));
     } catch {
       showToast('Failed to update favorites.', 'error');
     }
+  }
+
+  async function toggleFolderStar(e: React.MouseEvent, folderId: string) {
+    e.stopPropagation();
+    await starFolder(folderId);
   }
 
   // ── Block browser's default file-open on drag-drop anywhere on the page ──
@@ -1794,6 +1802,7 @@ function FilesPageInner() {
                           onDrop={(e) => handleFolderDrop(e, f)}
                           className={`group relative bg-white dark:bg-slate-800 border rounded-2xl p-4 flex flex-col
                                      items-center gap-2 cursor-pointer select-none transition-all
+                                     ${activeMenu?.type === 'folder' && activeMenu?.id === f.id ? 'z-[1]' : ''}
                                      ${isOver
                                        ? 'border-brand bg-brand/5 shadow-md scale-[1.02]'
                                        : isSelected
@@ -1854,11 +1863,12 @@ function FilesPageInner() {
                                 </svg>
                               </button>
                               {activeMenu?.type === 'folder' && activeMenu?.id === f.id && (
-                                <div data-menu className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-light dark:border-slate-700 min-w-36 py-1.5">
+                                <div data-menu className="absolute right-0 top-full mt-1 z-[200] bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-light dark:border-slate-700 min-w-40 py-1.5">
                                   {[
                                     { label: 'Download ZIP', action: () => { downloadZip(f); setActiveMenu(null); } },
                                     { label: 'Share link',   action: () => { setShareTarget({ type: 'folder', id: f.id, name: f.name }); setActiveMenu(null); } },
                                     { label: 'Share with…', action: () => { setFolderShareTarget(f); setActiveMenu(null); } },
+                                    { label: f.starred ? 'Remove from favorites' : 'Add to favorites', action: () => { starFolder(f.id); setActiveMenu(null); } },
                                     { label: 'Rename',       action: () => startRename('folder', f.id, f.name) },
                                   ].map(({ label, action }) => (
                                     <button key={label} onClick={(e) => { e.stopPropagation(); action(); }}
@@ -1997,7 +2007,7 @@ function FilesPageInner() {
                                 </svg>
                               </button>
                               {activeMenu?.type === 'file' && activeMenu?.id === f.id && (
-                                <div data-menu className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-light dark:border-slate-700 min-w-36 py-1.5">
+                                <div data-menu className="absolute right-0 top-full mt-1 z-[200] bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-light dark:border-slate-700 min-w-40 py-1.5">
                                   <button onClick={() => { openPreview(f); setActiveMenu(null); }}
                                     className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
                                     Preview
@@ -2011,6 +2021,10 @@ function FilesPageInner() {
                                     className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
                                     Download
                                   </a>
+                                  <button onClick={() => { starFile(f.id); setActiveMenu(null); }}
+                                    className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
+                                    {f.starred ? 'Remove from favorites' : 'Add to favorites'}
+                                  </button>
                                   <button onClick={() => startRename('file', f.id, f.name)}
                                     className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
                                     Rename
@@ -2122,7 +2136,7 @@ function FilesPageInner() {
                                 </svg>
                               </button>
                               {activeMenu?.type === 'file' && activeMenu?.id === f.id && (
-                                <div data-menu className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-light dark:border-slate-700 min-w-36 py-1.5">
+                                <div data-menu className="absolute right-0 top-full mt-1 z-[200] bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-light dark:border-slate-700 min-w-40 py-1.5">
                                   <button onClick={(e) => { e.stopPropagation(); openPreview(f); setActiveMenu(null); }}
                                     className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
                                     Preview
@@ -2136,6 +2150,10 @@ function FilesPageInner() {
                                     className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
                                     Download
                                   </a>
+                                  <button onClick={(e) => { e.stopPropagation(); starFile(f.id); setActiveMenu(null); }}
+                                    className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
+                                    {f.starred ? 'Remove from favorites' : 'Add to favorites'}
+                                  </button>
                                   <button onClick={(e) => { e.stopPropagation(); startRename('file', f.id, f.name); }}
                                     className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
                                     Rename
