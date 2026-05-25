@@ -1840,8 +1840,23 @@ function FilesPageInner() {
                             onDragStart={(e) => handleDragStart(e, f)}
                             onDragEnd={handleDragEnd}
                             onContextMenu={(e) => openContextMenu(e, 'file', f)}
+                            onClick={(e) => {
+                              if (renameTarget?.id === f.id) return;
+                              const target = e.target as HTMLElement;
+                              if (target.closest('button') || target.closest('input') || target.closest('a')) return;
+                              if (isPreviewable(f.mime_type)) {
+                                openPreview(f, i);
+                              } else {
+                                const a = document.createElement('a');
+                                a.href = `${getApiBase()}/files/${f.id}/download?token=${getToken()}`;
+                                a.download = f.name;
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                              }
+                            }}
                             className={`relative flex items-center gap-3 sm:gap-4 px-3 sm:px-5 py-3.5 hover:bg-brand-bg/50 dark:hover:bg-slate-700/50 transition group
-                                        cursor-grab active:cursor-grabbing
+                                        cursor-pointer
                                         ${i === 0 ? 'rounded-t-2xl' : ''}
                                         ${i === files.length - 1 ? 'rounded-b-2xl' : 'border-b border-slate-light/60 dark:border-slate-700/60'}
                                         ${isDragging ? 'opacity-40 bg-brand-bg/30 dark:bg-slate-700/30' : ''}
@@ -1942,7 +1957,21 @@ function FilesPageInner() {
                         return (
                           <div
                             key={f.id}
-                            onDoubleClick={() => isPreviewable(f.mime_type) && openPreview(f)}
+                            onClick={(e) => {
+                              if (renameTarget?.id === f.id) return;
+                              const target = e.target as HTMLElement;
+                              if (target.closest('button') || target.closest('input') || target.closest('a')) return;
+                              if (isPreviewable(f.mime_type)) {
+                                openPreview(f);
+                              } else {
+                                const a = document.createElement('a');
+                                a.href = `${getApiBase()}/files/${f.id}/download?token=${getToken()}`;
+                                a.download = f.name;
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                              }
+                            }}
                             onContextMenu={(e) => openContextMenu(e, 'file', f)}
                             className={`group relative bg-white dark:bg-slate-800 border rounded-2xl p-4 flex flex-col items-center gap-2 cursor-pointer select-none transition-all hover:border-brand hover:shadow-md hover:scale-[1.01]
                                        ${isSelected ? 'border-brand bg-brand/5' : 'border-slate-light dark:border-slate-700'}`}
