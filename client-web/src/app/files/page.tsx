@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, Suspense, type ChangeEvent } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, Suspense, type ChangeEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/hooks/useAuth';
@@ -770,6 +770,49 @@ function FilesPageInner() {
     return 'list';
   });
 
+  // sort — persisted to localStorage
+  type SortField = 'name' | 'date' | 'size' | 'type';
+  type SortDir   = 'asc'  | 'desc';
+
+  const SORT_LABELS: Record<SortField, string> = { name: 'Name', date: 'Date', size: 'Size', type: 'Type' };
+
+  const [sortBy, setSortBy] = useState<SortField>(() => {
+    if (typeof window !== 'undefined') return (localStorage.getItem('supfile_sort_by') as SortField) ?? 'name';
+    return 'name';
+  });
+  const [sortDir, setSortDir] = useState<SortDir>(() => {
+    if (typeof window !== 'undefined') return (localStorage.getItem('supfile_sort_dir') as SortDir) ?? 'asc';
+    return 'asc';
+  });
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const sortMenuRef = useRef<HTMLDivElement>(null);
+
+  function applySort<T extends { name: string; updated_at: string; size?: number; mime_type?: string }>(
+    items: T[]
+  ): T[] {
+    return [...items].sort((a, b) => {
+      let cmp = 0;
+      switch (sortBy) {
+        case 'name': cmp = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }); break;
+        case 'date': cmp = new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime(); break;
+        case 'size': cmp = (a.size ?? 0) - (b.size ?? 0); break;
+        case 'type': {
+          const ta = a.mime_type ?? '';
+          const tb = b.mime_type ?? '';
+          cmp = ta.localeCompare(tb);
+          if (cmp === 0) cmp = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+          break;
+        }
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const sortedFolders = useMemo(() => applySort(folders), [folders, sortBy, sortDir]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const sortedFiles   = useMemo(() => applySort(files),   [files,   sortBy, sortDir]);
+
   // search — derived directly from URL so they're always in sync with searchParams
   const searchQuery  = searchParams.get('q')    ?? '';
   const searchType   = searchParams.get('type') ?? '';
@@ -807,6 +850,19 @@ function FilesPageInner() {
       document.removeEventListener('scroll', close, true);
     };
   }, [contextMenu]);
+
+  // ── Close sort menu on outside click ─────────────────────────────────────
+
+  useEffect(() => {
+    if (!sortMenuOpen) return;
+    function close(e: MouseEvent) {
+      if (sortMenuRef.current && !sortMenuRef.current.contains(e.target as Node)) {
+        setSortMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [sortMenuOpen]);
 
   function openContextMenu(e: React.MouseEvent, type: 'file' | 'folder', item: FileItem | Folder) {
     e.preventDefault();
@@ -1239,7 +1295,7 @@ function FilesPageInner() {
   // ── Preview ──────────────────────────────────────────────────────────────
 
   async function openPreview(file: FileItem, idx?: number) {
-    const resolvedIdx = idx !== undefined ? idx : files.findIndex(f => f.id === file.id);
+    const resolvedIdx = idx !== undefined ? idx : sortedFiles.findIndex(f => f.id === file.id);
     setPreviewIndex(resolvedIdx >= 0 ? resolvedIdx : null);
     setPreviewFile(file);
     setPreviewLoading(true);
@@ -1278,8 +1334,8 @@ function FilesPageInner() {
   function navigatePreview(delta: number) {
     if (previewIndex === null) return;
     const newIdx = previewIndex + delta;
-    if (newIdx < 0 || newIdx >= files.length) return;
-    openPreview(files[newIdx], newIdx);
+    if (newIdx < 0 || newIdx >= sortedFiles.length) return;
+    openPreview(sortedFiles[newIdx], newIdx);
   }
 
   // ── Download ZIP ─────────────────────────────────────────────────────────
@@ -1351,6 +1407,79 @@ function FilesPageInner() {
           >
             ?
           </button>
+
+          {/* Sort dropdown */}
+          <div className="relative shrink-0" ref={sortMenuRef}>
+            <button
+              onClick={() => setSortMenuOpen(prev => !prev)}
+              title="Sort files"
+              className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-slate-light dark:border-slate-600
+                         bg-white dark:bg-slate-800 text-sm text-slate-mid hover:border-brand hover:text-brand transition"
+            >
+              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="9" y2="18"/>
+              </svg>
+              <span className="hidden sm:inline">{SORT_LABELS[sortBy]}</span>
+              <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
+                {sortDir === 'asc'
+                  ? <polyline points="18 15 12 9 6 15" />
+                  : <polyline points="6 9 12 15 18 9" />
+                }
+              </svg>
+            </button>
+            {sortMenuOpen && (
+              <div className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-light dark:border-slate-700 min-w-52 py-1.5">
+                <p className="px-3 py-1.5 text-[10px] font-semibold text-slate-mid dark:text-slate-500 uppercase tracking-wider">Sort by</p>
+                {([
+                  { field: 'name' as SortField, label: 'Name',          asc: 'A → Z',          desc: 'Z → A'          },
+                  { field: 'date' as SortField, label: 'Date modified',  asc: 'Oldest first',   desc: 'Newest first'   },
+                  { field: 'size' as SortField, label: 'Size',           asc: 'Smallest first', desc: 'Largest first'  },
+                  { field: 'type' as SortField, label: 'Type',           asc: 'A → Z',          desc: 'Z → A'          },
+                ]).map(({ field, label, asc, desc }) => {
+                  const isActive = sortBy === field;
+                  return (
+                    <button
+                      key={field}
+                      onClick={() => {
+                        if (isActive) {
+                          const newDir: SortDir = sortDir === 'asc' ? 'desc' : 'asc';
+                          setSortDir(newDir);
+                          localStorage.setItem('supfile_sort_dir', newDir);
+                        } else {
+                          const defaultDir: SortDir = field === 'date' || field === 'size' ? 'desc' : 'asc';
+                          setSortBy(field);
+                          setSortDir(defaultDir);
+                          localStorage.setItem('supfile_sort_by', field);
+                          localStorage.setItem('supfile_sort_dir', defaultDir);
+                        }
+                        setSortMenuOpen(false);
+                      }}
+                      className={`flex items-center justify-between w-full px-3 py-2 text-sm transition
+                                  ${isActive
+                                    ? 'text-brand bg-brand/5 dark:bg-brand/10'
+                                    : 'text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700'
+                                  }`}
+                    >
+                      <span>
+                        <span className={isActive ? 'font-medium' : ''}>{label}</span>
+                        <span className="ml-1.5 text-xs text-slate-mid dark:text-slate-400">
+                          {isActive ? (sortDir === 'asc' ? asc : desc) : asc}
+                        </span>
+                      </span>
+                      {isActive && (
+                        <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
+                          {sortDir === 'asc'
+                            ? <polyline points="18 15 12 9 6 15" />
+                            : <polyline points="6 9 12 15 18 9" />
+                          }
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           {/* View mode toggle */}
           <div className="flex items-center border border-slate-light dark:border-slate-600 rounded-xl overflow-hidden shrink-0">
@@ -1652,7 +1781,7 @@ function FilesPageInner() {
                     </h2>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                    {folders.map((f) => {
+                    {sortedFolders.map((f) => {
                       const isOver = dragOverFolderId === f.id;
                       const isSelected = selectedIds.has(f.id);
                       return (
@@ -1820,7 +1949,7 @@ function FilesPageInner() {
                   {viewMode === 'list' ? (
                     /* ── List view ── */
                     <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-light dark:border-slate-700">
-                      {files.map((f, i) => {
+                      {sortedFiles.map((f, i) => {
                         const { bg, color } = mimeColor(f.mime_type);
                         const isDragging = draggingFile?.id === f.id;
                         const isSelected = selectedIds.has(f.id);
@@ -1849,7 +1978,7 @@ function FilesPageInner() {
                             className={`relative flex items-center gap-3 sm:gap-4 px-3 sm:px-5 py-3.5 hover:bg-brand-bg/50 dark:hover:bg-slate-700/50 transition group
                                         cursor-pointer
                                         ${i === 0 ? 'rounded-t-2xl' : ''}
-                                        ${i === files.length - 1 ? 'rounded-b-2xl' : 'border-b border-slate-light/60 dark:border-slate-700/60'}
+                                        ${i === sortedFiles.length - 1 ? 'rounded-b-2xl' : 'border-b border-slate-light/60 dark:border-slate-700/60'}
                                         ${isDragging ? 'opacity-40 bg-brand-bg/30 dark:bg-slate-700/30' : ''}
                                         ${isSelected ? 'bg-brand/5 dark:bg-brand/10' : ''}`}
                           >
@@ -1947,7 +2076,7 @@ function FilesPageInner() {
                   ) : (
                     /* ── Grid view ── */
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                      {files.map((f) => {
+                      {sortedFiles.map((f) => {
                         const { bg, color } = mimeColor(f.mime_type);
                         const isSelected = selectedIds.has(f.id);
                         return (
@@ -2122,7 +2251,7 @@ function FilesPageInner() {
           loading={previewLoading}
           onClose={closePreview}
           hasPrev={previewIndex !== null && previewIndex > 0}
-          hasNext={previewIndex !== null && previewIndex < files.length - 1}
+          hasNext={previewIndex !== null && previewIndex < sortedFiles.length - 1}
           onPrev={() => navigatePreview(-1)}
           onNext={() => navigatePreview(1)}
         />
