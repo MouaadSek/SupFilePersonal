@@ -426,6 +426,49 @@ function TextPreview({ url }: { url: string }) {
   );
 }
 
+// ─── Keyboard shortcuts help modal ────────────────────────────────────────────
+
+const SHORTCUTS = [
+  { key: '?',       desc: 'Show keyboard shortcuts' },
+  { key: 'Ctrl+A',  desc: 'Select all items' },
+  { key: 'Ctrl+U',  desc: 'Upload files' },
+  { key: 'Esc',     desc: 'Deselect all / close modal' },
+  { key: 'Enter',   desc: 'Preview / open selected item' },
+  { key: 'Delete',  desc: 'Move selected to trash' },
+  { key: '← →',    desc: 'Navigate in preview' },
+];
+
+function ShortcutsHelp({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={onClose}>
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-light dark:border-slate-700 p-6 w-full max-w-sm shadow-2xl"
+        onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="font-semibold text-slate-dark dark:text-slate-100 text-lg">Keyboard Shortcuts</h3>
+          <button onClick={onClose}
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-mid hover:text-slate-dark dark:hover:text-slate-100 hover:bg-slate-light/60 dark:hover:bg-slate-700 transition text-xl leading-none">
+            ×
+          </button>
+        </div>
+        <div className="space-y-2.5">
+          {SHORTCUTS.map(({ key, desc }) => (
+            <div key={key} className="flex items-center justify-between gap-4">
+              <span className="text-sm text-slate-mid dark:text-slate-400">{desc}</span>
+              <kbd className="shrink-0 px-2 py-0.5 text-xs font-mono bg-slate-light/60 dark:bg-slate-700 rounded-md border border-slate-200 dark:border-slate-600 text-slate-dark dark:text-slate-100">
+                {key}
+              </kbd>
+            </div>
+          ))}
+        </div>
+        <p className="mt-5 text-xs text-slate-mid dark:text-slate-500 text-center">
+          Press <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-light/60 dark:bg-slate-700 rounded border border-slate-200 dark:border-slate-600">?</kbd> to toggle this panel
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ─── Preview modal ────────────────────────────────────────────────────────────
 
 function PreviewModal({
@@ -450,15 +493,16 @@ function PreviewModal({
   const mime = file.mime_type;
   const downloadUrl = `${getApiBase()}/files/${file.id}/download?token=${getToken()}`;
 
-  // keyboard navigation
+  // keyboard navigation + close
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape')     { onClose(); }
       if (e.key === 'ArrowLeft')  { e.preventDefault(); onPrev?.(); }
       if (e.key === 'ArrowRight') { e.preventDefault(); onNext?.(); }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onPrev, onNext]);
+  }, [onClose, onPrev, onNext]);
 
   // image zoom state
   const [zoom, setZoom] = useState(1);
@@ -668,6 +712,9 @@ function FilesPageInner() {
   // inline rename
   const [renameTarget, setRenameTarget] = useState<{ type: 'file' | 'folder'; id: string } | null>(null);
   const [renameValue, setRenameValue] = useState('');
+
+  // keyboard shortcuts help
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
 
   // right-click context menu
   const [contextMenu, setContextMenu] = useState<{
@@ -949,6 +996,66 @@ function FilesPageInner() {
     setViewMode(mode);
     if (typeof window !== 'undefined') localStorage.setItem('supfile_view_mode', mode);
   }
+
+  // ── Global keyboard shortcuts ─────────────────────────────────────────────
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement).tagName;
+      const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement).isContentEditable;
+
+      // Escape — dismiss in priority order (modal → preview → selection)
+      if (e.key === 'Escape') {
+        if (showShortcutsHelp) { setShowShortcutsHelp(false); return; }
+        if (selectedIds.size > 0) { clearSelection(); return; }
+        return;
+      }
+
+      if (inInput) return;
+
+      // ? — toggle shortcuts help
+      if (e.key === '?') {
+        e.preventDefault();
+        setShowShortcutsHelp(prev => !prev);
+        return;
+      }
+
+      // Ctrl+A — select all
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        e.preventDefault();
+        selectAll();
+        return;
+      }
+
+      // Ctrl+U — trigger upload
+      if ((e.ctrlKey || e.metaKey) && e.key === 'u') {
+        e.preventDefault();
+        fileInput.current?.click();
+        return;
+      }
+
+      // Delete / Backspace — trash selected items
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.size > 0) {
+        e.preventDefault();
+        deleteSelected();
+        return;
+      }
+
+      // Enter — open / preview the single selected item
+      if (e.key === 'Enter' && selectedIds.size === 1) {
+        const id = Array.from(selectedIds)[0];
+        const file = files.find(f => f.id === id);
+        const folder = folders.find(f => f.id === id);
+        if (file && isPreviewable(file.mime_type)) { openPreview(file); }
+        else if (folder) { openFolder(folder); }
+        return;
+      }
+    }
+
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showShortcutsHelp, selectedIds, files, folders]);
 
   // ── Upload ───────────────────────────────────────────────────────────────
 
@@ -1235,6 +1342,15 @@ function FilesPageInner() {
               : 'Upload'}
             <input ref={fileInput} type="file" multiple className="hidden" onChange={handleUpload} />
           </label>
+
+          {/* Keyboard shortcut hint */}
+          <button
+            onClick={() => setShowShortcutsHelp(true)}
+            title="Keyboard shortcuts (?)"
+            className="p-2.5 rounded-xl border border-slate-light dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-mid hover:text-brand hover:border-brand transition text-sm font-bold leading-none shrink-0"
+          >
+            ?
+          </button>
 
           {/* View mode toggle */}
           <div className="flex items-center border border-slate-light dark:border-slate-600 rounded-xl overflow-hidden shrink-0">
@@ -1981,6 +2097,9 @@ function FilesPageInner() {
           onNext={() => navigatePreview(1)}
         />
       )}
+
+      {/* ── Keyboard shortcuts help ── */}
+      {showShortcutsHelp && <ShortcutsHelp onClose={() => setShowShortcutsHelp(false)} />}
 
       {/* ── Right-click context menu ── */}
       {contextMenu && (
