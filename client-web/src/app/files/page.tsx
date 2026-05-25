@@ -1469,7 +1469,7 @@ function FilesPageInner() {
                           onDragStart={(e) => handleDragStart(e, f)}
                           onDragEnd={handleDragEnd}
                           className={`relative flex items-center gap-3 sm:gap-4 px-3 sm:px-5 py-3.5 hover:bg-brand-bg/50 dark:hover:bg-slate-700/50 transition group
-                                      cursor-grab active:cursor-grabbing overflow-hidden
+                                      cursor-grab active:cursor-grabbing
                                       ${i === 0 ? 'rounded-t-2xl' : ''}
                                       ${i === files.length - 1 ? 'rounded-b-2xl' : 'border-b border-slate-light/60 dark:border-slate-700/60'}
                                       ${isDragging ? 'opacity-40 bg-brand-bg/30 dark:bg-slate-700/30' : ''}`}
