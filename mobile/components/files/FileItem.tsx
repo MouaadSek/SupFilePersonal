@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { MoreVertical, Check } from 'lucide-react-native';
+import { MoreVertical, Check, Star } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useFavorites } from '@/contexts/FavoritesContext';
 import { FileItem as FileItemType } from '@/types';
 import { formatFileSize, formatDate } from '@/utils/format';
 import { folderChildCount, formatFolderChildLabel } from '@/utils/fileTree';
@@ -29,6 +30,8 @@ export function FileItemComponent({
   allFiles = [],
 }: FileItemProps) {
   const { colors } = useTheme();
+  const { isFavorited, toggleFavorite } = useFavorites();
+  const starred = isFavorited(item.id);
 
   if (viewMode === 'grid') {
     return (
@@ -53,6 +56,17 @@ export function FileItemComponent({
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <MoreVertical size={16} color={colors.textSecondary} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.starButton}
+          onPress={() => void toggleFavorite(item)}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Star
+            size={14}
+            color={starred ? colors.warning : colors.textTertiary}
+            fill={starred ? colors.warning : 'none'}
+          />
         </TouchableOpacity>
         <FileListPreview item={item} size="md" containerStyle={styles.gridPreview} />
         <Text style={[styles.gridName, { color: colors.text }]} numberOfLines={2}>
@@ -98,6 +112,18 @@ export function FileItemComponent({
       </View>
 
       <TouchableOpacity
+        onPress={() => void toggleFavorite(item)}
+        style={styles.listStarButton}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <Star
+          size={16}
+          color={starred ? colors.warning : colors.textTertiary}
+          fill={starred ? colors.warning : 'none'}
+        />
+      </TouchableOpacity>
+
+      <TouchableOpacity
         onPress={onMenuPress}
         style={styles.listMenuButton}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -131,6 +157,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: Spacing.sm,
     right: Spacing.sm,
+    zIndex: 1,
+  },
+  starButton: {
+    position: 'absolute',
+    top: Spacing.sm,
+    right: 32,
     zIndex: 1,
   },
   gridPreview: {
@@ -181,6 +213,10 @@ const styles = StyleSheet.create({
   listMeta: {
     fontSize: FontSize.sm,
     marginTop: 2,
+  },
+  listStarButton: {
+    padding: Spacing.sm,
+    flexShrink: 0,
   },
   listMenuButton: {
     padding: Spacing.sm,

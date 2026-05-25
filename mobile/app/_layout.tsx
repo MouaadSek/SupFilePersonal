@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { FilesProvider } from '@/contexts/FilesContext';
+import { FavoritesProvider } from '@/contexts/FavoritesContext';
 
 function RootLayoutContent() {
   const { actualTheme, colors } = useTheme();
@@ -36,7 +37,9 @@ export default function RootLayout() {
         <ThemeProvider>
           <AuthProvider>
             <FilesProvider>
-              <RootLayoutContent />
+              <FavoritesProvider>
+                <RootLayoutContent />
+              </FavoritesProvider>
             </FilesProvider>
           </AuthProvider>
         </ThemeProvider>
