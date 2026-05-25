@@ -1886,6 +1886,11 @@ function FilesPageInner() {
                                   type="text"
                                   value={renameValue}
                                   onChange={(e) => setRenameValue(e.target.value)}
+                                  onFocus={(e) => {
+                                    const dotIdx = renameValue.lastIndexOf('.');
+                                    if (dotIdx > 0) e.currentTarget.setSelectionRange(0, dotIdx);
+                                    else e.currentTarget.select();
+                                  }}
                                   onKeyDown={(e) => {
                                     if (e.key === 'Enter') renameFile(f.id, renameValue);
                                     if (e.key === 'Escape') setRenameTarget(null);
@@ -2000,6 +2005,11 @@ function FilesPageInner() {
                                 type="text"
                                 value={renameValue}
                                 onChange={(e) => setRenameValue(e.target.value)}
+                                onFocus={(e) => {
+                                  const dotIdx = renameValue.lastIndexOf('.');
+                                  if (dotIdx > 0) e.currentTarget.setSelectionRange(0, dotIdx);
+                                  else e.currentTarget.select();
+                                }}
                                 onKeyDown={(e) => {
                                   if (e.key === 'Enter') renameFile(f.id, renameValue);
                                   if (e.key === 'Escape') setRenameTarget(null);
