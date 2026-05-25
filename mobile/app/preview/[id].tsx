@@ -12,7 +12,14 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  runOnJS,
+} from 'react-native-reanimated';
+import { Gesture, GestureDetector, Directions } from 'react-native-gesture-handler';
 import {
   Share2,
   Download,
@@ -29,6 +36,8 @@ import {
   Cloud,
   Smartphone,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react-native';
 import { Audio } from 'expo-av';
 import { useVideoPlayer, VideoView } from 'expo-video';
@@ -69,7 +78,7 @@ function officeEmbedUrl(fileUrl: string): string {
   return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fileUrl)}`;
 }
 
-/** Répertoire parent d’un fichier `file://…` (requis pour `allowingReadAccessToURL` sur iOS). */
+/** Répertoire parent d'un fichier `file://…` (requis pour `allowingReadAccessToURL` sur iOS). */
 function parentDirectoryOfFileUri(fileUri: string): string | undefined {
   if (!fileUri.startsWith('file:')) return undefined;
   const clean = fileUri.split('?')[0];
@@ -169,7 +178,7 @@ function PdfPreview({ file }: { file: FileItem }) {
     return (
       <View style={[styles.embedWebView, { backgroundColor: colors.background }]}>
         <Text style={[styles.fallbackText, { color: colors.textSecondary }]}>
-          Impossible d’afficher ce PDF. Vérifiez votre connexion ou ouvrez-le avec une autre application.
+          Impossible d'afficher ce PDF. Vérifiez votre connexion ou ouvrez-le avec une autre application.
         </Text>
       </View>
     );
@@ -257,7 +266,7 @@ function SpreadsheetInlinePreview({ file }: { file: FileItem }) {
     return (
       <ScrollView style={styles.documentContainer} contentContainerStyle={styles.documentContent}>
         <Text style={[styles.fallbackText, { color: colors.textSecondary }]}>
-          Impossible d’afficher ce classeur dans l’application. Vérifiez la connexion ou le format du
+          Impossible d'afficher ce classeur dans l'application. Vérifiez la connexion ou le format du
           fichier.
         </Text>
         {canOpenFileExternally(file) ? (
@@ -445,25 +454,95 @@ function AudioNativePreview({ file }: { file: FileItem }) {
   );
 }
 
+/** Image preview with pinch-to-zoom, pan, and double-tap to reset. */
 function ImageFullPreview({ uri }: { uri: string }) {
   const { colors } = useTheme();
   const [busy, setBusy] = useState(true);
+
+  const scale = useSharedValue(1);
+  const savedScale = useSharedValue(1);
+  const offsetX = useSharedValue(0);
+  const offsetY = useSharedValue(0);
+  const savedOffsetX = useSharedValue(0);
+  const savedOffsetY = useSharedValue(0);
+
+  const resetTransform = () => {
+    'worklet';
+    scale.value = withSpring(1);
+    offsetX.value = withSpring(0);
+    offsetY.value = withSpring(0);
+    savedScale.value = 1;
+    savedOffsetX.value = 0;
+    savedOffsetY.value = 0;
+  };
+
+  const pinchGesture = Gesture.Pinch()
+    .onUpdate((e) => {
+      scale.value = Math.max(0.5, Math.min(6, savedScale.value * e.scale));
+    })
+    .onEnd(() => {
+      if (scale.value < 1) {
+        resetTransform();
+      } else {
+        savedScale.value = scale.value;
+      }
+    });
+
+  const panGesture = Gesture.Pan()
+    .minPointers(2)
+    .onUpdate((e) => {
+      offsetX.value = savedOffsetX.value + e.translationX;
+      offsetY.value = savedOffsetY.value + e.translationY;
+    })
+    .onEnd(() => {
+      savedOffsetX.value = offsetX.value;
+      savedOffsetY.value = offsetY.value;
+    });
+
+  const doubleTapGesture = Gesture.Tap()
+    .numberOfTaps(2)
+    .onEnd(() => {
+      if (scale.value > 1) {
+        resetTransform();
+      } else {
+        scale.value = withSpring(2.5);
+        savedScale.value = 2.5;
+      }
+    });
+
+  const composed = Gesture.Simultaneous(
+    Gesture.Simultaneous(pinchGesture, panGesture),
+    doubleTapGesture,
+  );
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: offsetX.value },
+      { translateY: offsetY.value },
+      { scale: scale.value },
+    ],
+  }));
+
   return (
-    <View style={[styles.mediaBox, { backgroundColor: colors.background }]}>
-      {busy ? (
-        <View style={styles.imageLoaderOverlay} pointerEvents="none">
-          <ActivityIndicator color={colors.primary} size="large" />
-        </View>
-      ) : null}
-      <Image
-        source={{ uri }}
-        style={styles.fullImage}
-        resizeMode="contain"
-        onLoadStart={() => setBusy(true)}
-        onLoadEnd={() => setBusy(false)}
-        onError={() => setBusy(false)}
-      />
-    </View>
+    <GestureDetector gesture={composed}>
+      <View style={[styles.mediaBox, { backgroundColor: colors.background }]}>
+        {busy ? (
+          <View style={styles.imageLoaderOverlay} pointerEvents="none">
+            <ActivityIndicator color={colors.primary} size="large" />
+          </View>
+        ) : null}
+        <Animated.View style={[{ flex: 1, width: screenWidth }, animatedStyle]}>
+          <Image
+            source={{ uri }}
+            style={styles.fullImage}
+            resizeMode="contain"
+            onLoadStart={() => setBusy(true)}
+            onLoadEnd={() => setBusy(false)}
+            onError={() => setBusy(false)}
+          />
+        </Animated.View>
+      </View>
+    </GestureDetector>
   );
 }
 
@@ -660,16 +739,6 @@ function previewKind(file: FileItem): string {
   return 'other';
 }
 
-function streamUri(file: FileItem): string | null {
-  return (
-    file.localUri ||
-    (file.id ? fileAuthenticatedPreviewUrl(file.id) : undefined) ||
-    file.previewUrl ||
-    file.downloadUrl ||
-    null
-  );
-}
-
 function PreviewMetaPanel({
   file,
   resolvedBytes,
@@ -725,12 +794,12 @@ function PreviewMetaPanel({
         <>
           <Text style={[styles.metaCardTitle, { color: colors.text }]}>Détails techniques</Text>
           <Text style={[styles.metaCardSub, { color: colors.textSecondary }]}>
-            Données du fichier tel qu’il est enregistré dans votre espace.
+            Données du fichier tel qu'il est enregistré dans votre espace.
           </Text>
         </>
       ) : (
         <Text style={[styles.metaCardSub, { color: colors.textSecondary, marginBottom: Spacing.md }]}>
-          Données du fichier tel qu’il est enregistré dans votre espace.
+          Données du fichier tel qu'il est enregistré dans votre espace.
         </Text>
       )}
       {rows.map(({ Icon, label, value }) => (
@@ -753,7 +822,7 @@ function PreviewMetaPanel({
         <Text style={[styles.metaSourceText, { color: colors.textSecondary }]}>Source : {source}</Text>
       </View>
       <Text style={[styles.metaFootnote, { color: colors.textTertiary }]}>
-        Consultation directe dans l’app. Partager ou enregistrer reste optionnel.
+        Consultation directe dans l'app. Partager ou enregistrer reste optionnel.
       </Text>
     </View>
   );
@@ -761,9 +830,48 @@ function PreviewMetaPanel({
 
 export default function PreviewScreen() {
   const { colors } = useTheme();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, fileIds: rawFileIds } = useLocalSearchParams<{ id: string; fileIds?: string }>();
   const { getFileById, ensureFileInIndex, renameItem, files } = useFiles();
   const file = getFileById(id);
+
+  // Parse the ordered list of previewable file IDs passed from the files screen
+  const fileIdsList = useMemo(
+    () => (rawFileIds ? rawFileIds.split(',').filter(Boolean) : []),
+    [rawFileIds],
+  );
+  const currentIndex = useMemo(
+    () => fileIdsList.indexOf(id),
+    [fileIdsList, id],
+  );
+  const hasPrev = currentIndex > 0;
+  const hasNext = currentIndex >= 0 && currentIndex < fileIdsList.length - 1;
+
+  const goPrev = useCallback(() => {
+    if (!hasPrev) return;
+    const prevId = fileIdsList[currentIndex - 1];
+    router.replace({
+      pathname: '/preview/[id]',
+      params: { id: prevId, fileIds: rawFileIds },
+    });
+  }, [hasPrev, fileIdsList, currentIndex, rawFileIds]);
+
+  const goNext = useCallback(() => {
+    if (!hasNext) return;
+    const nextId = fileIdsList[currentIndex + 1];
+    router.replace({
+      pathname: '/preview/[id]',
+      params: { id: nextId, fileIds: rawFileIds },
+    });
+  }, [hasNext, fileIdsList, currentIndex, rawFileIds]);
+
+  // Fling gestures for next/prev navigation
+  const flingLeft = Gesture.Fling()
+    .direction(Directions.LEFT)
+    .onEnd(() => { if (hasNext) runOnJS(goNext)(); });
+  const flingRight = Gesture.Fling()
+    .direction(Directions.RIGHT)
+    .onEnd(() => { if (hasPrev) runOnJS(goPrev)(); });
+  const swipeGesture = Gesture.Race(flingLeft, flingRight);
 
   useEffect(() => {
     if (id && !getFileById(id)) {
@@ -866,7 +974,7 @@ export default function PreviewScreen() {
         ) : (
           <View style={[styles.openExternalBlock, { backgroundColor: colors.surface }]}>
             <Text style={[styles.openExternalHint, { color: colors.textSecondary }]}>
-              Importez le fichier ou ajoutez une URL de téléchargement côté serveur pour l’ouvrir ailleurs.
+              Importez le fichier ou ajoutez une URL de téléchargement côté serveur pour l'ouvrir ailleurs.
             </Text>
           </View>
         )}
@@ -969,6 +1077,24 @@ export default function PreviewScreen() {
           </Text>
         </View>
         <View style={styles.headerActions}>
+          {(hasPrev || hasNext) ? (
+            <>
+              <TouchableOpacity
+                style={[styles.headerButton, !hasPrev && styles.headerButtonDisabled]}
+                onPress={goPrev}
+                disabled={!hasPrev}
+              >
+                <ChevronLeft size={22} color={hasPrev ? colors.text : colors.textTertiary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.headerButton, !hasNext && styles.headerButtonDisabled]}
+                onPress={goNext}
+                disabled={!hasNext}
+              >
+                <ChevronRight size={22} color={hasNext ? colors.text : colors.textTertiary} />
+              </TouchableOpacity>
+            </>
+          ) : null}
           <TouchableOpacity
             style={styles.headerButton}
             onPress={() => {
@@ -1006,58 +1132,61 @@ export default function PreviewScreen() {
         file={renameTarget}
       />
 
-      <View style={styles.bodyColumn}>
-        <View style={styles.previewContainer}>{renderPreview()}</View>
-        {technicalDetailsExpanded ? (
-          <ScrollView
+      {/* Swipe gesture wrapper for next/prev navigation */}
+      <GestureDetector gesture={swipeGesture}>
+        <View style={styles.bodyColumn}>
+          <View style={styles.previewContainer}>{renderPreview()}</View>
+          {technicalDetailsExpanded ? (
+            <ScrollView
+              style={[
+                styles.detailsPanelScroll,
+                { maxHeight: Math.min(screenHeight * 0.42, 340), borderTopColor: colors.border },
+              ]}
+              contentContainerStyle={styles.detailsPanelScrollContent}
+              nestedScrollEnabled
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator
+            >
+              <PreviewMetaPanel
+                file={uiFile}
+                resolvedBytes={resolvedFsBytes}
+                colors={colors}
+                variant="embedded"
+              />
+            </ScrollView>
+          ) : null}
+          <View
             style={[
-              styles.detailsPanelScroll,
-              { maxHeight: Math.min(screenHeight * 0.42, 340), borderTopColor: colors.border },
+              styles.detailsHandleOuter,
+              { backgroundColor: colors.surface, borderTopColor: colors.border },
             ]}
-            contentContainerStyle={styles.detailsPanelScrollContent}
-            nestedScrollEnabled
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator
           >
-            <PreviewMetaPanel
-              file={uiFile}
-              resolvedBytes={resolvedFsBytes}
-              colors={colors}
-              variant="embedded"
-            />
-          </ScrollView>
-        ) : null}
-        <View
-          style={[
-            styles.detailsHandleOuter,
-            { backgroundColor: colors.surface, borderTopColor: colors.border },
-          ]}
-        >
-          <TouchableOpacity
-            style={styles.detailsHandle}
-            onPress={() => setTechnicalDetailsExpanded((v) => !v)}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: technicalDetailsExpanded }}
-            accessibilityLabel={
-              technicalDetailsExpanded
-                ? 'Masquer les détails techniques'
-                : 'Afficher les détails techniques'
-            }
-          >
-            <FileType size={18} color={colors.primary} />
-            <Text style={[styles.detailsHandleTitle, { color: colors.text }]}>
-              Détails techniques
-            </Text>
-            <ChevronDown
-              size={22}
-              color={colors.textSecondary}
-              style={{
-                transform: [{ rotate: technicalDetailsExpanded ? '180deg' : '0deg' }],
-              }}
-            />
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.detailsHandle}
+              onPress={() => setTechnicalDetailsExpanded((v) => !v)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: technicalDetailsExpanded }}
+              accessibilityLabel={
+                technicalDetailsExpanded
+                  ? 'Masquer les détails techniques'
+                  : 'Afficher les détails techniques'
+              }
+            >
+              <FileType size={18} color={colors.primary} />
+              <Text style={[styles.detailsHandleTitle, { color: colors.text }]}>
+                Détails techniques
+              </Text>
+              <ChevronDown
+                size={22}
+                color={colors.textSecondary}
+                style={{
+                  transform: [{ rotate: technicalDetailsExpanded ? '180deg' : '0deg' }],
+                }}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </GestureDetector>
     </SafeAreaView>
   );
 }
@@ -1074,6 +1203,9 @@ const styles = StyleSheet.create({
   },
   headerButton: {
     padding: Spacing.sm,
+  },
+  headerButtonDisabled: {
+    opacity: 0.3,
   },
   headerTitleBlock: {
     flex: 1,
