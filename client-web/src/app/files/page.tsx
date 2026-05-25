@@ -577,6 +577,14 @@ function FilesPageInner() {
   const [renameTarget, setRenameTarget] = useState<{ type: 'file' | 'folder'; id: string } | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
+  // view mode — persisted to localStorage
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('supfile_view_mode') as 'list' | 'grid') ?? 'list';
+    }
+    return 'list';
+  });
+
   // search — derived directly from URL so they're always in sync with searchParams
   const searchQuery  = searchParams.get('q')    ?? '';
   const searchType   = searchParams.get('type') ?? '';
@@ -752,6 +760,11 @@ function FilesPageInner() {
     setRenameTarget({ type, id });
     setRenameValue(currentName);
     setActiveMenu(null);
+  }
+
+  function toggleViewMode(mode: 'list' | 'grid') {
+    setViewMode(mode);
+    if (typeof window !== 'undefined') localStorage.setItem('supfile_view_mode', mode);
   }
 
   // ── Upload ───────────────────────────────────────────────────────────────
@@ -1029,6 +1042,24 @@ function FilesPageInner() {
               : 'Upload'}
             <input ref={fileInput} type="file" multiple className="hidden" onChange={handleUpload} />
           </label>
+
+          {/* View mode toggle */}
+          <div className="flex items-center border border-slate-light dark:border-slate-600 rounded-xl overflow-hidden shrink-0">
+            <button onClick={() => toggleViewMode('list')} title="List view"
+              className={`p-2.5 transition ${viewMode === 'list' ? 'bg-brand text-white' : 'bg-white dark:bg-slate-800 text-slate-mid hover:text-slate-dark dark:hover:text-slate-100'}`}>
+              <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+                <circle cx="3" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="3" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="3" cy="18" r="1" fill="currentColor" stroke="none"/>
+              </svg>
+            </button>
+            <button onClick={() => toggleViewMode('grid')} title="Grid view"
+              className={`p-2.5 transition ${viewMode === 'grid' ? 'bg-brand text-white' : 'bg-white dark:bg-slate-800 text-slate-mid hover:text-slate-dark dark:hover:text-slate-100'}`}>
+              <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+                <rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1458,40 +1489,130 @@ function FilesPageInner() {
                   <h2 className="text-xs font-semibold text-slate-mid uppercase tracking-wider mb-3">
                     Files ({files.length})
                   </h2>
-                  <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-light dark:border-slate-700">
-                    {files.map((f, i) => {
-                      const { bg, color } = mimeColor(f.mime_type);
-                      const isDragging = draggingFile?.id === f.id;
-                      return (
-                        <div
-                          key={f.id}
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, f)}
-                          onDragEnd={handleDragEnd}
-                          className={`relative flex items-center gap-3 sm:gap-4 px-3 sm:px-5 py-3.5 hover:bg-brand-bg/50 dark:hover:bg-slate-700/50 transition group
-                                      cursor-grab active:cursor-grabbing
-                                      ${i === 0 ? 'rounded-t-2xl' : ''}
-                                      ${i === files.length - 1 ? 'rounded-b-2xl' : 'border-b border-slate-light/60 dark:border-slate-700/60'}
-                                      ${isDragging ? 'opacity-40 bg-brand-bg/30 dark:bg-slate-700/30' : ''}`}
-                        >
-                          <div className="absolute left-0 top-0 bottom-0 w-[3px] opacity-0 group-hover:opacity-100 transition-opacity"
-                            style={{ background: color }} />
-                          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
-                            style={{ background: bg, color }}>
-                            {f.mime_type.startsWith('image/') ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={`${getApiBase()}/files/${f.id}/preview?access_token=${encodeURIComponent(getToken())}`}
-                                alt={f.name}
-                                className="w-full h-full object-cover"
-                                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextSibling as HTMLElement | null)?.style.removeProperty('display'); }}
-                              />
-                            ) : null}
-                            <span style={f.mime_type.startsWith('image/') ? { display: 'none' } : {}}>
-                              <FileIcon mime={f.mime_type} />
-                            </span>
+
+                  {viewMode === 'list' ? (
+                    /* ── List view ── */
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-light dark:border-slate-700">
+                      {files.map((f, i) => {
+                        const { bg, color } = mimeColor(f.mime_type);
+                        const isDragging = draggingFile?.id === f.id;
+                        return (
+                          <div
+                            key={f.id}
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, f)}
+                            onDragEnd={handleDragEnd}
+                            className={`relative flex items-center gap-3 sm:gap-4 px-3 sm:px-5 py-3.5 hover:bg-brand-bg/50 dark:hover:bg-slate-700/50 transition group
+                                        cursor-grab active:cursor-grabbing
+                                        ${i === 0 ? 'rounded-t-2xl' : ''}
+                                        ${i === files.length - 1 ? 'rounded-b-2xl' : 'border-b border-slate-light/60 dark:border-slate-700/60'}
+                                        ${isDragging ? 'opacity-40 bg-brand-bg/30 dark:bg-slate-700/30' : ''}`}
+                          >
+                            <div className="absolute left-0 top-0 bottom-0 w-[3px] opacity-0 group-hover:opacity-100 transition-opacity"
+                              style={{ background: color }} />
+                            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
+                              style={{ background: bg, color }}>
+                              {f.mime_type.startsWith('image/') ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={`${getApiBase()}/files/${f.id}/preview?access_token=${encodeURIComponent(getToken())}`}
+                                  alt={f.name}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextSibling as HTMLElement | null)?.style.removeProperty('display'); }}
+                                />
+                              ) : null}
+                              <span style={f.mime_type.startsWith('image/') ? { display: 'none' } : {}}>
+                                <FileIcon mime={f.mime_type} />
+                              </span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              {renameTarget?.type === 'file' && renameTarget?.id === f.id ? (
+                                <input
+                                  autoFocus
+                                  type="text"
+                                  value={renameValue}
+                                  onChange={(e) => setRenameValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') renameFile(f.id, renameValue);
+                                    if (e.key === 'Escape') setRenameTarget(null);
+                                  }}
+                                  onBlur={() => setRenameTarget(null)}
+                                  className="text-sm font-medium w-full rounded px-1 py-0.5 bg-brand-bg dark:bg-slate-700 border border-brand focus:outline-none text-slate-dark dark:text-slate-100"
+                                />
+                              ) : (
+                                <p className="text-sm font-medium text-slate-dark dark:text-slate-100 truncate">{f.name}</p>
+                              )}
+                              <p className="text-xs text-slate-mid dark:text-slate-400">{formatBytes(f.size)} · {timeAgo(f.updated_at)}</p>
+                            </div>
+                            <div className="relative shrink-0" data-menu>
+                              <button
+                                onClick={() => setActiveMenu(activeMenu?.id === f.id && activeMenu.type === 'file' ? null : { type: 'file', id: f.id })}
+                                className="p-1.5 rounded-lg text-slate-mid hover:text-slate-dark dark:hover:text-slate-100 hover:bg-slate-light/40 dark:hover:bg-slate-700 transition cursor-pointer"
+                                title="More actions"
+                              >
+                                <svg width={15} height={15} viewBox="0 0 24 24" fill="currentColor">
+                                  <circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" />
+                                </svg>
+                              </button>
+                              {activeMenu?.type === 'file' && activeMenu?.id === f.id && (
+                                <div data-menu className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-light dark:border-slate-700 min-w-36 py-1.5">
+                                  <button onClick={() => { openPreview(f); setActiveMenu(null); }}
+                                    className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
+                                    Preview
+                                  </button>
+                                  <button onClick={() => { setShareTarget({ type: 'file', id: f.id, name: f.name }); setActiveMenu(null); }}
+                                    className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
+                                    Share
+                                  </button>
+                                  <a href={`${getApiBase()}/files/${f.id}/download?token=${getToken()}`}
+                                    onClick={() => setActiveMenu(null)}
+                                    className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
+                                    Download
+                                  </a>
+                                  <button onClick={() => startRename('file', f.id, f.name)}
+                                    className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
+                                    Rename
+                                  </button>
+                                  <button onClick={() => { trashFile(f.id); setActiveMenu(null); }}
+                                    className="flex w-full items-center px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition text-left cursor-pointer">
+                                    Move to trash
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex-1 min-w-0">
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    /* ── Grid view ── */
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                      {files.map((f) => {
+                        const { bg, color } = mimeColor(f.mime_type);
+                        return (
+                          <div
+                            key={f.id}
+                            onDoubleClick={() => isPreviewable(f.mime_type) && openPreview(f)}
+                            className="group relative bg-white dark:bg-slate-800 border border-slate-light dark:border-slate-700 rounded-2xl p-4 flex flex-col items-center gap-2 cursor-pointer select-none transition-all hover:border-brand hover:shadow-md hover:scale-[1.01]"
+                          >
+                            {/* Large thumbnail / icon */}
+                            <div className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0 overflow-hidden [&>svg]:w-7 [&>svg]:h-7"
+                              style={{ background: bg, color }}>
+                              {f.mime_type.startsWith('image/') ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={`${getApiBase()}/files/${f.id}/preview?access_token=${encodeURIComponent(getToken())}`}
+                                  alt={f.name}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextSibling as HTMLElement | null)?.style.removeProperty('display'); }}
+                                />
+                              ) : null}
+                              <span style={f.mime_type.startsWith('image/') ? { display: 'none' } : {}}>
+                                <FileIcon mime={f.mime_type} />
+                              </span>
+                            </div>
+
+                            {/* Filename */}
                             {renameTarget?.type === 'file' && renameTarget?.id === f.id ? (
                               <input
                                 autoFocus
@@ -1503,53 +1624,57 @@ function FilesPageInner() {
                                   if (e.key === 'Escape') setRenameTarget(null);
                                 }}
                                 onBlur={() => setRenameTarget(null)}
-                                className="text-sm font-medium w-full rounded px-1 py-0.5 bg-brand-bg dark:bg-slate-700 border border-brand focus:outline-none text-slate-dark dark:text-slate-100"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-xs font-medium text-center w-full rounded px-1 py-0.5 bg-brand-bg dark:bg-slate-700 border border-brand focus:outline-none"
                               />
                             ) : (
-                              <p className="text-sm font-medium text-slate-dark dark:text-slate-100 truncate">{f.name}</p>
+                              <p className="text-xs font-medium text-slate-dark dark:text-slate-100 text-center truncate w-full">{f.name}</p>
                             )}
-                            <p className="text-xs text-slate-mid dark:text-slate-400">{formatBytes(f.size)} · {timeAgo(f.updated_at)}</p>
+                            <p className="text-[10px] text-slate-mid dark:text-slate-400 text-center">{formatBytes(f.size)}</p>
+
+                            {/* Three-dots menu */}
+                            <div className="absolute top-2 right-2" data-menu>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu?.id === f.id && activeMenu.type === 'file' ? null : { type: 'file', id: f.id }); }}
+                                className="p-1 rounded text-slate-mid hover:text-brand hover:bg-slate-light/40 dark:hover:bg-slate-700 transition cursor-pointer opacity-0 group-hover:opacity-100"
+                                title="More actions"
+                              >
+                                <svg width={13} height={13} viewBox="0 0 24 24" fill="currentColor">
+                                  <circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" />
+                                </svg>
+                              </button>
+                              {activeMenu?.type === 'file' && activeMenu?.id === f.id && (
+                                <div data-menu className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-light dark:border-slate-700 min-w-36 py-1.5">
+                                  <button onClick={(e) => { e.stopPropagation(); openPreview(f); setActiveMenu(null); }}
+                                    className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
+                                    Preview
+                                  </button>
+                                  <button onClick={(e) => { e.stopPropagation(); setShareTarget({ type: 'file', id: f.id, name: f.name }); setActiveMenu(null); }}
+                                    className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
+                                    Share
+                                  </button>
+                                  <a href={`${getApiBase()}/files/${f.id}/download?token=${getToken()}`}
+                                    onClick={() => setActiveMenu(null)}
+                                    className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
+                                    Download
+                                  </a>
+                                  <button onClick={(e) => { e.stopPropagation(); startRename('file', f.id, f.name); }}
+                                    className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
+                                    Rename
+                                  </button>
+                                  <button onClick={(e) => { e.stopPropagation(); trashFile(f.id); setActiveMenu(null); }}
+                                    className="flex w-full items-center px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition text-left cursor-pointer">
+                                    Move to trash
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                          <div className="relative shrink-0" data-menu>
-                            <button
-                              onClick={() => setActiveMenu(activeMenu?.id === f.id && activeMenu.type === 'file' ? null : { type: 'file', id: f.id })}
-                              className="p-1.5 rounded-lg text-slate-mid hover:text-slate-dark dark:hover:text-slate-100 hover:bg-slate-light/40 dark:hover:bg-slate-700 transition cursor-pointer"
-                              title="More actions"
-                            >
-                              <svg width={15} height={15} viewBox="0 0 24 24" fill="currentColor">
-                                <circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" />
-                              </svg>
-                            </button>
-                            {activeMenu?.type === 'file' && activeMenu?.id === f.id && (
-                              <div data-menu className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-light dark:border-slate-700 min-w-36 py-1.5">
-                                <button onClick={() => { openPreview(f); setActiveMenu(null); }}
-                                  className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
-                                  Preview
-                                </button>
-                                <button onClick={() => { setShareTarget({ type: 'file', id: f.id, name: f.name }); setActiveMenu(null); }}
-                                  className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
-                                  Share
-                                </button>
-                                <a href={`${getApiBase()}/files/${f.id}/download?token=${getToken()}`}
-                                  onClick={() => setActiveMenu(null)}
-                                  className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
-                                  Download
-                                </a>
-                                <button onClick={() => startRename('file', f.id, f.name)}
-                                  className="flex w-full items-center px-3 py-2 text-sm text-slate-dark dark:text-slate-100 hover:bg-brand-bg dark:hover:bg-slate-700 transition text-left cursor-pointer">
-                                  Rename
-                                </button>
-                                <button onClick={() => { trashFile(f.id); setActiveMenu(null); }}
-                                  className="flex w-full items-center px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition text-left cursor-pointer">
-                                  Move to trash
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
                   {draggingFile && (
                     <p className="text-xs text-slate-mid text-center mt-3">
                       Drag onto a folder to move &ldquo;{draggingFile.name}&rdquo;
