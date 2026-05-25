@@ -442,6 +442,10 @@ function PreviewModal({
     return () => window.removeEventListener('keydown', onKey);
   }, [onPrev, onNext]);
 
+  // image zoom state
+  const [zoom, setZoom] = useState(1);
+  useEffect(() => { setZoom(1); }, [file.id]);
+
   function renderBody() {
     if (loading) {
       return <div className="w-10 h-10 rounded-full border-4 border-brand border-t-transparent animate-spin" />;
@@ -460,9 +464,34 @@ function PreviewModal({
     }
     if (mime.startsWith('image/')) {
       return (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={blobUrl} alt={file.name}
-          className="max-w-full max-h-[60vh] object-contain rounded-xl shadow-sm" />
+        <div
+          className="flex items-center justify-center overflow-hidden rounded-xl"
+          style={{ maxWidth: '100%', maxHeight: '60vh' }}
+          onWheel={(e) => {
+            e.preventDefault();
+            setZoom(z => Math.min(5, Math.max(0.25, z * (e.deltaY < 0 ? 1.1 : 0.9))));
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={blobUrl}
+            alt={file.name}
+            onClick={() => setZoom(z => z === 1 ? 2 : 1)}
+            onDoubleClick={() => setZoom(1)}
+            title={zoom === 1 ? 'Click to zoom in · Scroll to zoom · Double-click to reset' : 'Double-click to reset zoom'}
+            style={{
+              transform: `scale(${zoom})`,
+              transformOrigin: 'center',
+              transition: 'transform 0.2s ease',
+              maxWidth: '100%',
+              maxHeight: '60vh',
+              objectFit: 'contain',
+              borderRadius: '0.75rem',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+              cursor: zoom > 1 ? 'zoom-out' : 'zoom-in',
+            }}
+          />
+        </div>
       );
     }
     if (mime === 'application/pdf') {
